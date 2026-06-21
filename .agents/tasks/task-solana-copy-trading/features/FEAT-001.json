@@ -2,7 +2,7 @@
   "id": "FEAT-001",
   "type": "chore",
   "description": "Initialize the pnpm monorepo with all workspace packages, shared configuration (TypeScript, ESLint, Prettier), Turborepo build orchestration, and the complete Prisma database schema. This establishes the project skeleton that all subsequent features build upon.",
-  "status": "in_progress",
+  "status": "completed",
   "steps": [
     "Create root package.json with pnpm workspace config, scripts (build, test, dev, lint, format), and devDependencies (typescript, eslint, prettier, turbo, vitest)",
     "Create pnpm-workspace.yaml listing apps/* and packages/*",
@@ -36,5 +36,5 @@
     "Run: pnpm --filter database prisma validate"
   ],
   "blocked_reason": null,
-  "findings": ""
+  "findings": "pnpm 10.28.1 requires pnpm.onlyBuiltDependencies in package.json to allow prisma/esbuild build scripts. Prisma validate needs DATABASE_URL env var set (use DATABASE_URL=postgresql://localhost:5432/test for dry validation). All 12 packages build successfully, 10 risk-engine tests pass. Turborepo caching works correctly."
 }
