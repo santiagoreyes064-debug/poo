@@ -1,0 +1,43 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+build/
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Prisma generated
+packages/database/prisma/generated/
+
+# Turborepo cache
+.turbo/
+
+# Anchor/Solana
+programs/vault/target/
+target/
+test-ledger/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Coverage
+coverage/
+
+# Next.js
+.next/
+out/

@@ -1,0 +1,32 @@
+{
+  "id": "FEAT-002",
+  "type": "feat",
+  "description": "Implement the API Gateway service (Fastify REST + WebSocket), authentication system (wallet-based with Ed25519 nonce verification), and all REST API endpoints including vault management endpoints. This is the central service that the frontend communicates with.",
+  "status": "pending",
+  "steps": [
+    "Implement apps/api-gateway/src/index.ts as Fastify server with CORS, rate limiting (@fastify/rate-limit at 100 req/min per IP), JWT plugin, WebSocket support (@fastify/websocket), health check (/health), and Prometheus metrics (/metrics)",
+    "Implement apps/api-gateway/src/plugins/auth.ts with JWT verification middleware, nonce generation (stored in Redis with 5-min TTL), Ed25519 signature verification using tweetnacl",
+    "Implement apps/api-gateway/src/routes/auth.ts: POST /api/v1/auth/nonce, POST /api/v1/auth/verify (upserts user + connected_wallet, returns 7-day JWT), POST /api/v1/auth/wallet (add secondary wallet)",
+    "Implement apps/api-gateway/src/routes/traders.ts: GET /api/v1/traders/leaderboard (sort, order, page, perPage, minTrades with Redis cache), GET /api/v1/traders/search, GET /api/v1/traders/:id, POST /api/v1/traders/add",
+    "Implement apps/api-gateway/src/routes/copy.ts: GET /api/v1/copy, POST /api/v1/copy/subscribe, PATCH /api/v1/copy/:id (whitelist updatable fields), DELETE /api/v1/copy/:id, POST /api/v1/copy/:id/pause, POST /api/v1/copy/:id/resume, GET /api/v1/copy/:id/trades",
+    "Implement apps/api-gateway/src/routes/dashboard.ts: GET /api/v1/dashboard, GET /api/v1/dashboard/trades, GET /api/v1/dashboard/tokens, PUT /api/v1/dashboard/notifications",
+    "Implement apps/api-gateway/src/routes/vault.ts: POST /api/v1/vault/create, GET /api/v1/vault, GET /api/v1/vault/balance, POST /api/v1/vault/deposit, POST /api/v1/vault/withdraw, PATCH /api/v1/vault/settings (update risk params), POST /api/v1/vault/pause, POST /api/v1/vault/resume, GET /api/v1/vault/transactions",
+    "Implement apps/api-gateway/src/ws/handler.ts: WebSocket connection with JWT auth via query param, maintain Map<userId, Set<WebSocket>> for multi-tab support, handle SIGNING_REQUEST forwarding from Redis pub/sub (signing:requests:{userId}), handle SIGNING_RESPONSE from client, heartbeat PING/PONG",
+    "Implement apps/api-gateway/src/services/audit.ts: audit log writer for sensitive actions (wallet.connected, copy.subscribed, copy.settings_updated, copy.unsubscribed, vault.created, vault.deposit, vault.withdrawal, vault.paused)",
+    "Add unit tests in apps/api-gateway/src/__tests__/ covering: auth nonce flow, JWT verification, rate limiting behavior, WebSocket message routing, vault endpoint validation"
+  ],
+  "acceptance_criteria": [
+    "pnpm build succeeds for api-gateway and all its dependencies",
+    "Unit tests pass covering auth flow, route handlers, and WebSocket logic",
+    "All REST endpoints defined and properly typed with request/response schemas",
+    "Rate limiting configured at 100 req/min per IP",
+    "WebSocket handler supports multi-tab connections per user",
+    "Vault management endpoints are fully implemented"
+  ],
+  "verification": [
+    "Run: pnpm --filter api-gateway build",
+    "Run: pnpm --filter api-gateway test"
+  ],
+  "blocked_reason": null,
+  "findings": ""
+}

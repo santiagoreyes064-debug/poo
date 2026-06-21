@@ -1,0 +1,16 @@
+{
+  "project_type": "TypeScript pnpm monorepo - Solana copy trading platform with microservices, Next.js frontend, and custom Anchor on-chain program",
+  "language": "TypeScript",
+  "build_system": "pnpm workspaces + Turborepo for build orchestration, Anchor for Solana program",
+  "test_framework": "Vitest for unit tests across all packages/services, Anchor test framework for on-chain program",
+  "build_command": "pnpm build",
+  "test_command": "pnpm test",
+  "verification_instructions": "1. Run pnpm install from root. 2. Run pnpm build to verify all packages compile. 3. Run pnpm test to verify unit tests pass. 4. Run docker compose config to validate docker-compose.yml. 5. Verify prisma schema is valid with pnpm --filter database prisma validate.",
+  "snapshot_or_generated_files": "packages/database will contain Prisma generated client (not checked in, generated on build). The Anchor program IDL will be generated but stored in programs/vault/target/idl/.",
+  "setup_instructions": "1. pnpm install 2. Copy .env.example to .env 3. docker compose up postgres redis -d 4. pnpm --filter database prisma migrate deploy 5. pnpm build 6. pnpm dev",
+  "environment_constraints": "Network access available for npm packages. No actual Solana devnet/mainnet interaction during build. No Docker daemon available for running containers during CI validation - validate docker-compose.yml syntax only.",
+  "contribution_requirements": "Greenfield project - establishing conventions: strict TypeScript, ESLint + Prettier, conventional commits, feature branches.",
+  "key_patterns": "Microservices communicate via Redis streams with consumer groups. On-chain vault pattern for non-custodial automated trading. JWT auth with Ed25519 wallet signature verification. Pure risk engine with dependency injection for testability.",
+  "relevant_files": [],
+  "directory_structure": "apps/ (8 microservices + frontend), packages/ (shared-types, database, risk-engine, dex-adapters), programs/ (Anchor vault program), docker-compose.yml, turbo.json, pnpm-workspace.yaml"
+}

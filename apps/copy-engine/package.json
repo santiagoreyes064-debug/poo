@@ -1,0 +1,19 @@
+{
+  "name": "@copy-trading/copy-engine",
+  "version": "0.1.0",
+  "private": true,
+  "main": "./dist/index.js",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "ts-node --esm src/index.ts",
+    "lint": "eslint src/"
+  },
+  "dependencies": {
+    "@copy-trading/shared-types": "workspace:*",
+    "@copy-trading/risk-engine": "workspace:*",
+    "@copy-trading/database": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.0"
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "id": "FEAT-003",
+  "type": "feat",
+  "description": "Implement the backend microservices: wallet-monitor (Helius WebSocket subscriber), tx-parser (transaction decoder with DEX adapters), copy-engine (fan-out to subscribers with risk checks), execution (Jupiter route building + Jito submission using vault funds), analytics (cron-based trader stats), and notification service. All services communicate via Redis streams with consumer groups.",
+  "status": "pending",
+  "steps": [
+    "Implement apps/wallet-monitor/src/index.ts: Connect to Helius WebSocket, subscribe to monitored trader wallets (loaded from DB on startup), push WalletEvent to Redis stream 'stream:wallet-events', handle reconnection with exponential backoff, support dynamic subscription updates via Redis pub/sub 'monitor:subscribe' channel",
+    "Implement apps/tx-parser/src/index.ts: Consume from 'stream:wallet-events' using xReadGroup consumer group, fetch full transaction via Helius RPC, use DexAdapterRegistry.findAdapter(tx) to identify DEX, parse tokenIn/tokenOut/amounts using pre/post balance diffs, store Trade row in DB, push ParsedTradeEvent to 'stream:parsed-trades', acknowledge message after processing",
+    "Implement apps/copy-engine/src/index.ts: Consume from 'stream:parsed-trades' using xReadGroup, query all enabled CopyRelation rows for the trader, run RiskEngine checks for each subscriber (using vault balance instead of wallet balance), create CopyTrade row (status PENDING) for allowed trades, push CopyOrderEvent to 'stream:copy-orders', mark SKIPPED with skipReason for rejected trades",
+    "Implement apps/execution/src/index.ts: Consume from 'stream:copy-orders', check order deadline (discard if >3s old), call Jupiter quote API, call Jupiter swap API to build versioned transaction, use vault as funding source (CPI call through vault program), submit via Jito block engine (fallback to Helius RPC), update CopyTrade row with status CONFIRMED/FAILED + signature + latency, publish to 'execution:results'. Support PAPER_TRADING=true mode that skips actual submission and records synthetic results",
+    "Implement apps/analytics/src/index.ts: Run every 5 minutes via setInterval, iterate all ACTIVE/PAUSED traders, calculate for windows 1/7/30/90 days: win rate, avg hold time, Sharpe ratio (annualized, 0 if <5 data points), max drawdown (cumulative return series), ROI (store 0 with TODO for Birdeye), update cached fields on traders table, invalidate leaderboard:* Redis cache keys, store TraderAnalytics rows",
+    "Implement apps/notification/src/index.ts: Subscribe to 'execution:results' Redis stream, look up user notification preferences, send via configured channels (Telegram bot API, Discord webhook, SendGrid email), support events: onTradeExecuted, onTradeFailed, onDailyLoss, onTraderPaused",
+    "Add shared Redis stream utilities in packages/shared-types/src/redis.ts: createConsumerGroup, xReadGroup wrapper with proper error handling and acknowledgment, stream publishing helper",
+    "Add unit tests for each service covering: tx-parser DEX detection logic, copy-engine fan-out with risk checks, execution paper trading mode, analytics calculations (win rate, Sharpe, drawdown)"
+  ],
+  "acceptance_criteria": [
+    "pnpm build succeeds for all 6 microservices",
+    "Unit tests pass for tx-parser, copy-engine, execution (paper mode), and analytics calculations",
+    "Redis stream consumer groups are properly configured with xReadGroup",
+    "Execution service supports PAPER_TRADING=true mode",
+    "Analytics correctly calculates win rate, Sharpe ratio, and max drawdown",
+    "All services have proper error handling and graceful shutdown"
+  ],
+  "verification": [
+    "Run: pnpm build",
+    "Run: pnpm test"
+  ],
+  "blocked_reason": null,
+  "findings": ""
+}

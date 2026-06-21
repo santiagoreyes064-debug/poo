@@ -1,0 +1,7 @@
+{
+  "task_id": "task-solana-copy-trading",
+  "task_description": "Build a complete Solana copy trading web application as a pnpm monorepo with 8 backend microservices, Next.js 15 frontend, custom Anchor on-chain vault program, PostgreSQL + Redis infrastructure, Docker Compose setup, and GitHub Actions CI/CD. The platform uses an on-chain vault pattern for non-custodial automated trading without per-trade wallet signatures.",
+  "status": "in_progress",
+  "feature_order": ["FEAT-001", "FEAT-002", "FEAT-003", "FEAT-004", "FEAT-005", "FEAT-006"],
+  "blocked_reason": null
+}

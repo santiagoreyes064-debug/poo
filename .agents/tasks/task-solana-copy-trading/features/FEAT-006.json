@@ -1,0 +1,31 @@
+{
+  "id": "FEAT-006",
+  "type": "chore",
+  "description": "Implement Docker Compose setup for local development, GitHub Actions CI/CD pipeline, Prometheus + Grafana monitoring configuration, and final project documentation. This ties everything together for local development and deployment.",
+  "status": "pending",
+  "steps": [
+    "Create docker-compose.yml with all services: postgres (postgres:16-alpine, port 5432, healthcheck), redis (redis:7-alpine, port 6379, appendonly, maxmemory 256mb, healthcheck), migrate (one-shot prisma migrate deploy), api-gateway (port 3001), wallet-monitor, tx-parser, copy-engine, execution, analytics, notification, prometheus (port 9090), grafana (port 3002). Use x-common-env anchor for shared .env. All services depend on postgres+redis healthy. All app services run as non-root uid 1001.",
+    "Create Dockerfile for each service in apps/ (multi-stage: node:22-alpine base, pnpm install, build, prune to production, run as uid 1001). Use a shared Dockerfile.base pattern or per-service Dockerfiles.",
+    "Create monitoring/prometheus.yml with scrape configs for all services on /metrics endpoint",
+    "Create monitoring/grafana/provisioning/ with datasource (Prometheus) and a basic dashboard JSON for trade latency, throughput, and error rate",
+    "Create .github/workflows/ci.yml: on push/PR to main - checkout, setup pnpm, install, lint, build, test, docker compose config validation",
+    "Create .github/workflows/deploy.yml: placeholder deployment workflow with build and push stages",
+    "Update docs/LOCAL_DEVELOPMENT.md with complete Docker Compose usage guide, troubleshooting section, and how to run individual services",
+    "Ensure README.md 5-command quickstart works: git clone, pnpm install, cp .env.example .env, docker compose up -d, pnpm dev"
+  ],
+  "acceptance_criteria": [
+    "docker compose config validates without errors",
+    "All Dockerfiles have correct syntax and multi-stage build pattern",
+    "GitHub Actions workflow YAML is valid",
+    "Prometheus config correctly targets all services",
+    "README quickstart commands are accurate and complete",
+    "All services run as non-root user (uid 1001) in Docker"
+  ],
+  "verification": [
+    "Run: docker compose config (validates docker-compose.yml syntax)",
+    "Run: pnpm build (full project still builds)",
+    "Run: pnpm test (all tests still pass)"
+  ],
+  "blocked_reason": null,
+  "findings": ""
+}

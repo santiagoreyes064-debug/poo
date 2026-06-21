@@ -1,0 +1,36 @@
+{
+  "id": "FEAT-005",
+  "type": "feat",
+  "description": "Implement the Next.js 15 frontend with App Router, Tailwind CSS, shadcn/ui components, Phantom wallet integration, Zustand state management, and all pages (Dashboard, Leaderboard, Trader Profile, Copy Settings). Includes vault management UI for creating vaults, depositing/withdrawing, and configuring risk parameters.",
+  "status": "pending",
+  "steps": [
+    "Initialize apps/frontend as Next.js 15 app with App Router, TypeScript, Tailwind CSS. Configure package.json with dependencies: @solana/wallet-adapter-react, @solana/wallet-adapter-react-ui, @solana/wallet-adapter-wallets, @solana/web3.js, zustand, recharts, and shadcn/ui setup (tailwind.config.ts with dark theme: gray-950 background, brand purple #9945FF, Solana green #14F195)",
+    "Create apps/frontend/src/app/layout.tsx with WalletContextProvider (Phantom adapter), QueryClientProvider, dark theme, and the shared navigation bar (sticky nav with SCT logo, Dashboard/Traders/Copy links, WalletMultiButton)",
+    "Create apps/frontend/src/stores/ with Zustand stores: useAuthStore (JWT token, user data, login/logout), useCopyStore (active copy relations, CRUD operations), useWebSocketStore (connection state, message handling, signing request queue), useVaultStore (vault state, balance, risk params)",
+    "Create apps/frontend/src/lib/api.ts with typed API client (fetch wrapper with JWT auth header, base URL config, error handling) covering all API endpoints",
+    "Create apps/frontend/src/lib/websocket.ts with WebSocket client: connect with JWT query param, handle CONNECTED/SIGNING_REQUEST/TRADE_UPDATE/PONG messages, auto-reconnect, heartbeat PING every 30s",
+    "Create apps/frontend/src/app/page.tsx (Dashboard): portfolio PnL cards (24h, 7d), active copied traders count, open positions count, recent trades table (pair, status badge colored by state, P&L, execution latency, DEX). If wallet not connected: hero section with Connect Wallet button and three feature cards",
+    "Create apps/frontend/src/app/traders/page.tsx (Leaderboard): sortable table by 7d ROI, 30d ROI, win rate, Sharpe, drawdown, trade count. Columns: rank, wallet (truncated + label), all stats, copiers count, Copy button. Copy button opens modal with trade size, slippage, stop-loss fields",
+    "Create apps/frontend/src/app/traders/[id]/page.tsx (Trader Profile): wallet address, label, status badge, PnL line chart (Recharts with 7d/30d/90d switcher), stats grid, recent trades table",
+    "Create apps/frontend/src/app/copy/page.tsx (Copy Settings): list active copy relations as cards with trader info, enabled toggle, quick stats. Expandable settings form: copyMode selector, SOL amount, max size, slippage bps, stop-loss %, take-profit %, daily loss limit, token blacklist. Unsubscribe button with confirmation dialog",
+    "Create apps/frontend/src/app/vault/page.tsx (Vault Management): vault creation flow, current balance display, deposit/withdraw forms, risk parameter configuration (max trade size, max daily loss, max slippage, max open positions, allowed DEXs checkboxes, token blacklist), pause/resume toggle, transaction history table",
+    "Create apps/frontend/src/components/ with reusable components: TradeTable, PnLCard, CopyModal, VaultCard, StatusBadge, TraderRow, StatsGrid, PnLChart (Recharts wrapper)",
+    "Create apps/frontend/src/hooks/ with custom hooks: useSigningRequests (handles SIGNING_REQUEST messages, calls signTransaction on wallet adapter, sends SIGNING_RESPONSE back), useTraderData, useDashboardData, useVaultData",
+    "Ensure responsive design (mobile-friendly) with Tailwind responsive classes throughout"
+  ],
+  "acceptance_criteria": [
+    "pnpm --filter frontend build succeeds (Next.js production build)",
+    "All pages render without errors in build output",
+    "Wallet adapter integration is properly configured for Phantom",
+    "WebSocket client handles all message types from the protocol spec",
+    "Dark theme applied consistently with specified colors",
+    "Vault management page allows full CRUD on vault state and risk params",
+    "Signing request flow: receive SIGNING_REQUEST -> call signTransaction -> send SIGNING_RESPONSE"
+  ],
+  "verification": [
+    "Run: pnpm --filter frontend build",
+    "Run: pnpm --filter frontend test (if tests exist)"
+  ],
+  "blocked_reason": null,
+  "findings": ""
+}

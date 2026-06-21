@@ -1,0 +1,40 @@
+{
+  "id": "FEAT-001",
+  "type": "chore",
+  "description": "Initialize the pnpm monorepo with all workspace packages, shared configuration (TypeScript, ESLint, Prettier), Turborepo build orchestration, and the complete Prisma database schema. This establishes the project skeleton that all subsequent features build upon.",
+  "status": "in_progress",
+  "steps": [
+    "Create root package.json with pnpm workspace config, scripts (build, test, dev, lint, format), and devDependencies (typescript, eslint, prettier, turbo, vitest)",
+    "Create pnpm-workspace.yaml listing apps/* and packages/*",
+    "Create turbo.json with pipeline for build, test, lint, dev tasks with proper dependency ordering",
+    "Create root tsconfig.json (base config) and tsconfig.build.json",
+    "Create .eslintrc.js with TypeScript rules and .prettierrc",
+    "Create .gitignore covering node_modules, dist, .env, prisma generated, turbo cache, anchor target",
+    "Create .env.example with all required environment variables (DATABASE_URL, REDIS_URL, JWT_SECRET, HELIUS_API_KEY, JITO_BLOCK_ENGINE_URL, JITO_AUTH_TOKEN, TELEGRAM_BOT_TOKEN, DISCORD_WEBHOOK_URL, SENDGRID_API_KEY, NODE_ENV, CORS_ORIGIN, PORT, PAPER_TRADING)",
+    "Create packages/shared-types/package.json and packages/shared-types/src/index.ts with all TypeScript interfaces: User, ConnectedWallet, Trader, CopyRelation, Trade, CopyTrade, TraderAnalytics, NotificationPreference, AuditLog, TokenMetadata, WalletEvent, ParsedTradeEvent, CopyOrderEvent, SigningRequest, SigningResponse, WebSocket message types (CONNECTED, SIGNING_REQUEST, TRADE_UPDATE, PONG, SIGNING_RESPONSE, PING), RiskCheckResult, DexAdapter interface, enums for CopyMode, TradeStatus, CopyTradeStatus, DexName, NotificationChannel, TraderStatus",
+    "Create packages/database/package.json with prisma and @prisma/client dependencies",
+    "Create packages/database/prisma/schema.prisma with the complete schema: users, connected_wallets, traders, copy_relations, trades, copy_trades, trader_analytics, notification_preferences, audit_logs, token_metadata, plus a new vaults table (id, userId, walletId, publicKey, authority, maxTradeSizeSol, maxDailyLossSol, maxSlippageBps, maxOpenPositions, allowedDexs string array, tokenBlacklist string array, depositedSol, availableSol, isPaused, createdAt, updatedAt) and vault_transactions table (id, vaultId, type DEPOSIT/WITHDRAWAL, amount, signature, timestamp)",
+    "Create packages/database/src/index.ts that exports the PrismaClient instance",
+    "Create packages/database/tsconfig.json",
+    "Create packages/risk-engine/package.json, tsconfig.json, src/index.ts with the pure RiskEngine class implementing all 10 risk checks in order with dependency-injected I/O interface (IUserBalanceProvider, IDailyLossProvider, IOpenPositionProvider, IHoneypotChecker, ITokenLiquidityProvider)",
+    "Create packages/risk-engine/src/__tests__/risk-engine.test.ts with at least 7 unit tests: allowed trade, disabled copy, blacklisted token, honeypot, daily loss hit, capped to maxTradeSize, insufficient balance",
+    "Create packages/dex-adapters/package.json, tsconfig.json, src/index.ts with DexAdapterRegistry, src/adapters/jupiter.ts, src/adapters/raydium.ts, src/adapters/orca.ts, src/adapters/meteora.ts - each implementing canParse() and parse() using pre/post token balance diffs",
+    "Create stub package.json and tsconfig.json for each app: apps/api-gateway, apps/wallet-monitor, apps/tx-parser, apps/copy-engine, apps/execution, apps/analytics, apps/notification, apps/frontend",
+    "Create a root README.md with project overview, architecture diagram (ASCII), 5-command quickstart, and link to docs/LOCAL_DEVELOPMENT.md",
+    "Create docs/LOCAL_DEVELOPMENT.md with step-by-step beginner-friendly setup instructions"
+  ],
+  "acceptance_criteria": [
+    "pnpm install completes successfully from root",
+    "pnpm build compiles all TypeScript packages without errors",
+    "pnpm test runs and passes the risk-engine unit tests (7+ tests passing)",
+    "Prisma schema validates successfully (pnpm --filter database prisma validate)",
+    "All workspace packages are properly linked and importable"
+  ],
+  "verification": [
+    "Run: pnpm install && pnpm build",
+    "Run: pnpm test",
+    "Run: pnpm --filter database prisma validate"
+  ],
+  "blocked_reason": null,
+  "findings": ""
+}

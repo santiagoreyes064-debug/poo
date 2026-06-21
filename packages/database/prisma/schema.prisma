@@ -1,0 +1,268 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ==================== Enums ====================
+
+enum TraderStatus {
+  ACTIVE
+  PAUSED
+  BANNED
+  INACTIVE
+}
+
+enum CopyMode {
+  FIXED
+  PROPORTIONAL
+}
+
+enum DexName {
+  JUPITER
+  RAYDIUM
+  ORCA
+  METEORA
+  UNKNOWN
+}
+
+enum CopyTradeStatus {
+  PENDING
+  SUBMITTED
+  CONFIRMED
+  FAILED
+  SKIPPED
+}
+
+enum NotificationChannel {
+  TELEGRAM
+  DISCORD
+  EMAIL
+  WEBHOOK
+}
+
+enum VaultTransactionType {
+  DEPOSIT
+  WITHDRAWAL
+}
+
+// ==================== Models ====================
+
+model User {
+  id        String   @id @default(uuid())
+  email     String?
+  createdAt DateTime @default(now())
+
+  connectedWallets        ConnectedWallet[]
+  copyRelations           CopyRelation[]
+  copyTrades              CopyTrade[]
+  notificationPreferences NotificationPreference[]
+  auditLogs               AuditLog[]
+  vaults                  Vault[]
+
+  @@map("users")
+}
+
+model ConnectedWallet {
+  id        String  @id @default(uuid())
+  publicKey String  @unique
+  userId    String
+  isDefault Boolean @default(false)
+  label     String?
+
+  user       User        @relation(fields: [userId], references: [id])
+  copyTrades CopyTrade[]
+  vaults     Vault[]
+
+  @@map("connected_wallets")
+}
+
+model Trader {
+  id            String       @id @default(uuid())
+  walletAddress String       @unique
+  label         String?
+  status        TraderStatus @default(ACTIVE)
+  roi7d         Float        @default(0)
+  roi30d        Float        @default(0)
+  winRate       Float        @default(0)
+  sharpeRatio   Float        @default(0)
+  maxDrawdown   Float        @default(0)
+  avgHoldTime   Float        @default(0)
+  totalTrades   Int          @default(0)
+  lastTradeAt   DateTime?
+
+  trades         Trade[]
+  copyRelations  CopyRelation[]
+  traderAnalytics TraderAnalytics[]
+
+  @@map("traders")
+}
+
+model CopyRelation {
+  id               String   @id @default(uuid())
+  userId           String
+  traderId         String
+  enabled          Boolean  @default(true)
+  copyMode         CopyMode @default(FIXED)
+  fixedAmountSol   Float?
+  proportionPct    Float?
+  maxTradeSizeSol  Float    @default(1.0)
+  maxSlippageBps   Int      @default(300)
+  stopLossPct      Float?
+  takeProfitPct    Float?
+  maxDailyLossSol  Float?
+  maxOpenPositions Int?
+  tokenBlacklist   String[]
+  pausedAt         DateTime?
+  pauseReason      String?
+
+  user   User   @relation(fields: [userId], references: [id])
+  trader Trader @relation(fields: [traderId], references: [id])
+
+  @@map("copy_relations")
+}
+
+model Trade {
+  id             String   @id @default(uuid())
+  traderId       String
+  signature      String   @unique
+  slot           BigInt
+  timestamp      DateTime
+  tokenIn        String
+  tokenOut       String
+  amountIn       String
+  amountOut      String
+  dex            DexName
+  priceImpactBps Int?
+  feeSol         String?
+
+  trader     Trader      @relation(fields: [traderId], references: [id])
+  copyTrades CopyTrade[]
+
+  @@map("trades")
+}
+
+model CopyTrade {
+  id                 String          @id @default(uuid())
+  userId             String
+  walletId           String
+  originalTradeId    String
+  status             CopyTradeStatus @default(PENDING)
+  copiedSignature    String?
+  amountIn           String?
+  amountOut          String?
+  executionLatencyMs Int?
+  pnlSol             Float?
+  pnlUsd             Float?
+  skipReason         String?
+  errorMessage       String?
+  jitoBundleId       String?
+  settledAt          DateTime?
+
+  user          User            @relation(fields: [userId], references: [id])
+  wallet        ConnectedWallet @relation(fields: [walletId], references: [id])
+  originalTrade Trade           @relation(fields: [originalTradeId], references: [id])
+
+  @@map("copy_trades")
+}
+
+model TraderAnalytics {
+  id             String   @id @default(uuid())
+  traderId       String
+  calculatedAt   DateTime
+  windowDays     Int
+  roi            Float
+  winRate        Float
+  totalTrades    Int
+  avgHoldTimeSec Float
+  sharpeRatio    Float
+  maxDrawdown    Float
+  realizedPnlSol Float
+
+  trader Trader @relation(fields: [traderId], references: [id])
+
+  @@map("trader_analytics")
+}
+
+model NotificationPreference {
+  id              String              @id @default(uuid())
+  userId          String
+  channel         NotificationChannel
+  target          String
+  enabled         Boolean             @default(true)
+  onTradeExecuted Boolean             @default(true)
+  onTradeFailed   Boolean             @default(true)
+  onDailyLoss     Boolean             @default(true)
+  onTraderPaused  Boolean             @default(true)
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@map("notification_preferences")
+}
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  userId    String
+  action    String
+  metadata  Json
+  ipAddress String?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@map("audit_logs")
+}
+
+model TokenMetadata {
+  mintAddress String   @id
+  symbol      String
+  name        String
+  decimals    Int
+  logoUri     String?
+  verified    Boolean  @default(false)
+  isHoneypot  Boolean  @default(false)
+  updatedAt   DateTime @updatedAt
+
+  @@map("token_metadata")
+}
+
+model Vault {
+  id               String   @id @default(uuid())
+  userId           String
+  walletId         String
+  publicKey        String   @unique
+  authority        String
+  maxTradeSizeSol  Float    @default(1.0)
+  maxDailyLossSol  Float    @default(5.0)
+  maxSlippageBps   Int      @default(300)
+  maxOpenPositions Int      @default(5)
+  allowedDexs      String[]
+  tokenBlacklist   String[]
+  depositedSol     Float    @default(0)
+  availableSol     Float    @default(0)
+  isPaused         Boolean  @default(false)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  user         User              @relation(fields: [userId], references: [id])
+  wallet       ConnectedWallet   @relation(fields: [walletId], references: [id])
+  transactions VaultTransaction[]
+
+  @@map("vaults")
+}
+
+model VaultTransaction {
+  id        String               @id @default(uuid())
+  vaultId   String
+  type      VaultTransactionType
+  amount    Float
+  signature String
+  timestamp DateTime
+
+  vault Vault @relation(fields: [vaultId], references: [id])
+
+  @@map("vault_transactions")
+}

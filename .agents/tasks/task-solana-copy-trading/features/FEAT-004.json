@@ -1,0 +1,32 @@
+{
+  "id": "FEAT-004",
+  "type": "feat",
+  "description": "Implement the custom Solana on-chain vault program using Anchor framework. This program manages user vaults for non-custodial automated trading. Users deposit funds, set risk parameters enforced on-chain, and the execution service can trade within those limits without per-trade wallet signatures.",
+  "status": "pending",
+  "steps": [
+    "Create programs/ directory structure with Anchor project layout: programs/vault/Cargo.toml, programs/vault/Xargo.toml, programs/vault/src/lib.rs",
+    "Create Anchor.toml at project root with program ID placeholder, cluster config, and test script",
+    "Implement the vault program in programs/vault/src/lib.rs with these instructions: initialize_vault (creates PDA vault account for user, sets authority), deposit (transfers SOL from user to vault PDA), withdraw (transfers SOL from vault PDA back to authority), update_risk_params (authority-only: set max_trade_size, max_daily_loss, max_slippage_bps, max_open_positions, allowed_dexs, token_blacklist), pause_vault (authority-only: sets is_paused flag), resume_vault (authority-only: clears is_paused flag), execute_trade (called by authorized executor: validates all risk params on-chain before allowing CPI to DEX program, enforces max_trade_size, checks daily_loss_counter, verifies token not blacklisted, verifies DEX is allowed, checks is_paused)",
+    "Define account structures: VaultAccount (authority pubkey, executor pubkey, deposited_sol u64, available_sol u64, max_trade_size u64, max_daily_loss u64, max_slippage_bps u16, max_open_positions u8, daily_loss_counter u64, daily_loss_reset_slot u64, is_paused bool, bump u8), VaultConfig (allowed_dexs Vec<Pubkey>, token_blacklist Vec<Pubkey>)",
+    "Implement proper PDA derivation: vault PDA seeded by [b'vault', user_pubkey], config PDA seeded by [b'vault_config', vault_pubkey]",
+    "Add comprehensive error codes: VaultPaused, UnauthorizedExecutor, MaxTradeSizeExceeded, DailyLossLimitReached, SlippageExceeded, MaxOpenPositionsReached, DexNotAllowed, TokenBlacklisted, InsufficientVaultBalance, InvalidAuthority",
+    "Create programs/vault/tests/vault.ts with Anchor test cases covering: vault creation, deposit, withdrawal, risk param updates, pause/resume, execute_trade success, execute_trade rejection for each risk violation",
+    "Create a TypeScript SDK wrapper in packages/vault-sdk/src/index.ts that provides typed methods for interacting with the vault program from the backend services (createVault, deposit, withdraw, updateRiskParams, pauseVault, resumeVault, buildExecuteTradeInstruction)",
+    "Add packages/vault-sdk/package.json with @coral-xyz/anchor, @solana/web3.js dependencies"
+  ],
+  "acceptance_criteria": [
+    "Anchor program compiles without errors (anchor build)",
+    "TypeScript SDK builds successfully and exports all vault interaction methods",
+    "Vault PDA derivation is deterministic and correct",
+    "All risk parameters are enforced in the execute_trade instruction",
+    "Program includes comprehensive error codes for each failure mode",
+    "Test file covers happy path and all rejection scenarios"
+  ],
+  "verification": [
+    "Run: pnpm build (vault-sdk package compiles)",
+    "Run: pnpm test (vault-sdk tests pass)",
+    "Verify Anchor program Rust code compiles by checking syntax (anchor build requires Solana toolchain which may not be available - verify Rust syntax is correct)"
+  ],
+  "blocked_reason": null,
+  "findings": ""
+}
