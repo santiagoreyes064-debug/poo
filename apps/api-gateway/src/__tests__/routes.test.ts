@@ -376,13 +376,15 @@ describe('API Routes', () => {
   });
 
   describe('Trader Routes', () => {
-    it('GET /api/v1/traders/leaderboard should require auth', async () => {
+    it('GET /api/v1/traders/leaderboard should be public (no auth required)', async () => {
       const response = await app.inject({
         method: 'GET',
         url: '/api/v1/traders/leaderboard',
       });
 
-      expect(response.statusCode).toBe(401);
+      expect(response.statusCode).toBe(200);
+      const body = JSON.parse(response.body);
+      expect(body.traders).toBeDefined();
     });
 
     it('GET /api/v1/traders/leaderboard should return paginated results', async () => {

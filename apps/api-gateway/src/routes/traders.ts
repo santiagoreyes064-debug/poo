@@ -26,10 +26,8 @@ interface AddTraderBody {
 }
 
 export async function traderRoutes(app: FastifyInstance): Promise<void> {
-  // GET /api/v1/traders/leaderboard
-  app.get<{ Querystring: LeaderboardQuery }>('/leaderboard', {
-    preHandler: [app.authenticate],
-  }, async (request, reply) => {
+  // GET /api/v1/traders/leaderboard (public - no auth required)
+  app.get<{ Querystring: LeaderboardQuery }>('/leaderboard', async (request, reply) => {
     const {
       sort = 'roi7d',
       order = 'desc',
@@ -82,10 +80,8 @@ export async function traderRoutes(app: FastifyInstance): Promise<void> {
     return reply.send(result);
   });
 
-  // GET /api/v1/traders/search
-  app.get<{ Querystring: SearchQuery }>('/search', {
-    preHandler: [app.authenticate],
-  }, async (request, reply) => {
+  // GET /api/v1/traders/search (public - no auth required)
+  app.get<{ Querystring: SearchQuery }>('/search', async (request, reply) => {
     const { q = '', page = 1, perPage = 20 } = request.query;
 
     const pageNum = Number(page);

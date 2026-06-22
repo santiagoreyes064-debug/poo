@@ -51,15 +51,15 @@ export const authApi = {
 
 // Trader endpoints
 export const tradersApi = {
-  list: (token: string, params?: { sortBy?: string; order?: string; limit?: number }) => {
+  list: (token?: string | null, params?: { sortBy?: string; order?: string; limit?: number }) => {
     const query = new URLSearchParams();
     if (params?.sortBy) query.set('sortBy', params.sortBy);
     if (params?.order) query.set('order', params.order);
     if (params?.limit) query.set('limit', String(params.limit));
     const qs = query.toString();
     return apiRequest<{ traders: TraderResponse[] }>(
-      `/api/v1/traders${qs ? `?${qs}` : ''}`,
-      { token },
+      `/api/v1/traders/leaderboard${qs ? `?${qs}` : ''}`,
+      { ...(token ? { token } : {}) },
     );
   },
 

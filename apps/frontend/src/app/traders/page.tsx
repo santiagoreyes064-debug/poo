@@ -17,7 +17,6 @@ export default function TradersPage() {
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
 
   const fetchTraders = useCallback(async () => {
-    if (!token) return;
     setIsLoading(true);
     try {
       const { traders: data } = await tradersApi.list(token, {
@@ -71,6 +70,12 @@ export default function TradersPage() {
         <h1 className="text-2xl font-bold">Trader Leaderboard</h1>
         <p className="text-sm text-gray-400">{traders.length} traders tracked</p>
       </div>
+
+      {!token && (
+        <div className="rounded-lg border border-gray-700 bg-gray-800/50 p-4 text-center text-gray-400">
+          Connect your wallet to view the trader leaderboard
+        </div>
+      )}
 
       <div className="rounded-lg border border-gray-800 bg-gray-900">
         <Table>
