@@ -112,7 +112,7 @@ export default function TradersPage() {
               </Button>
             </div>
             {addStatus && (
-              <p className={cn('text-xs', addStatus.includes('success') ? 'text-brand-green' : 'text-red-400')}>
+              <p className={cn('text-xs', addStatus.toLowerCase().includes('success') ? 'text-brand-green' : 'text-red-400')}>
                 {addStatus}
               </p>
             )}

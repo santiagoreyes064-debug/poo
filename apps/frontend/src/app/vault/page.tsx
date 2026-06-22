@@ -162,7 +162,7 @@ function WalletListView({ onSelectVault }: { onSelectVault: (vault: VaultRespons
 
 function WalletDetailView({ vault, onBack }: { vault: VaultResponse; onBack: () => void }) {
   const token = useAuthStore((s) => s.token);
-  const { vaultMetadata, updateVaultMetadata, deposit, withdraw, pause, resume, fetchVault } = useVaultStore();
+  const { vaultMetadata, updateVaultMetadata, deposit, withdraw, pause, resume, fetchVault, error: storeError } = useVaultStore();
   const { trades, tokens, totalPnl, isLoading: positionsLoading } = usePositionsData();
 
   const metadata = vaultMetadata.find((m) => m.id === vault.id);
@@ -231,6 +231,10 @@ function WalletDetailView({ vault, onBack }: { vault: VaultResponse; onBack: () 
     if (!token || !depositAmount) return;
     setActionLoading(true);
     try {
+      // TODO: Replace 'pending-signature' with real wallet signing.
+      // This prototype bypasses Solana transaction signing. In production,
+      // the user's wallet adapter should sign the transaction and provide
+      // the actual transaction signature here.
       await deposit(token, parseFloat(depositAmount), 'pending-signature');
       await fetchVault(token);
       setDepositAmount('');
@@ -248,6 +252,10 @@ function WalletDetailView({ vault, onBack }: { vault: VaultResponse; onBack: () 
     if (amount > vault.availableSol) return;
     setActionLoading(true);
     try {
+      // TODO: Replace 'pending-signature' with real wallet signing.
+      // This prototype bypasses Solana transaction signing. In production,
+      // the user's wallet adapter should sign the transaction and provide
+      // the actual transaction signature here.
       await withdraw(token, amount, 'pending-signature');
       await fetchVault(token);
       setWithdrawAmount('');
@@ -345,6 +353,13 @@ function WalletDetailView({ vault, onBack }: { vault: VaultResponse; onBack: () 
           {vault.isPaused ? <><Play className="h-4 w-4 mr-2" /> Resume</> : <><Pause className="h-4 w-4 mr-2" /> Pause</>}
         </Button>
       </div>
+
+      {/* Store Error Display */}
+      {storeError && (
+        <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3">
+          <p className="text-sm text-red-400">{storeError}</p>
+        </div>
+      )}
 
       {/* Withdraw Dialog */}
       {showWithdraw && (
