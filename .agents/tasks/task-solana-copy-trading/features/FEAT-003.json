@@ -2,7 +2,7 @@
   "id": "FEAT-003",
   "type": "feat",
   "description": "Implement the backend microservices: wallet-monitor (Helius WebSocket subscriber), tx-parser (transaction decoder with DEX adapters), copy-engine (fan-out to subscribers with risk checks), execution (Jupiter route building + Jito submission using vault funds), analytics (cron-based trader stats), and notification service. All services communicate via Redis streams with consumer groups.",
-  "status": "in_progress",
+  "status": "completed",
   "steps": [
     "Implement apps/wallet-monitor/src/index.ts: Connect to Helius WebSocket, subscribe to monitored trader wallets (loaded from DB on startup), push WalletEvent to Redis stream 'stream:wallet-events', handle reconnection with exponential backoff, support dynamic subscription updates via Redis pub/sub 'monitor:subscribe' channel",
     "Implement apps/tx-parser/src/index.ts: Consume from 'stream:wallet-events' using xReadGroup consumer group, fetch full transaction via Helius RPC, use DexAdapterRegistry.findAdapter(tx) to identify DEX, parse tokenIn/tokenOut/amounts using pre/post balance diffs, store Trade row in DB, push ParsedTradeEvent to 'stream:parsed-trades', acknowledge message after processing",
@@ -26,5 +26,5 @@
     "Run: pnpm test"
   ],
   "blocked_reason": null,
-  "findings": ""
+  "findings": "Added @@unique([traderId, windowDays]) to TraderAnalytics Prisma schema to support upsert operations. ioredis xreadgroup returns unknown[] so explicit type casting is needed. The DexAdapterRegistry.parse() uses traderId as the owner for token balance diff matching. All services use process.env.NODE_ENV !== test guard to prevent startup during tests."
 }
