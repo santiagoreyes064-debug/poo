@@ -94,11 +94,15 @@ export const VaultIDL: Idl = {
       name: "closePosition",
       accounts: [
         { name: "vault", isMut: true, isSigner: false },
+        { name: "vaultConfig", isMut: false, isSigner: false },
         { name: "executor", isMut: false, isSigner: true },
         { name: "returnSource", isMut: true, isSigner: false },
         { name: "systemProgram", isMut: false, isSigner: false },
       ],
-      args: [{ name: "returnedAmount", type: "u64" }],
+      args: [
+        { name: "returnedAmount", type: "u64" },
+        { name: "dexProgram", type: "publicKey" },
+      ],
     },
   ],
   accounts: [
@@ -171,6 +175,11 @@ export const VaultIDL: Idl = {
       name: "InvalidTradeDestination",
       msg: "Trade destination not owned by the specified DEX program",
     },
-    { code: 6011, name: "NoOpenPositions", msg: "No open positions to close" },
+    {
+      code: 6011,
+      name: "InvalidReturnSource",
+      msg: "Return source not owned by the specified DEX program",
+    },
+    { code: 6012, name: "NoOpenPositions", msg: "No open positions to close" },
   ],
 };

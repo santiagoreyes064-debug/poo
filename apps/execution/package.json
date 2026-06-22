@@ -12,6 +12,7 @@
   "dependencies": {
     "@copy-trading/shared-types": "workspace:*",
     "@copy-trading/database": "workspace:*",
+    "@copy-trading/vault-sdk": "workspace:*",
     "ioredis": "^5.4.0"
   },
   "devDependencies": {

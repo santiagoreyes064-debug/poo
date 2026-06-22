@@ -212,11 +212,15 @@ pub mod vault {
 
     /// Closes a position and returns SOL to the vault's available balance.
     /// Called by the authorized executor after a trade is settled.
+    /// The return_source must be owned by one of the allowed DEX programs (same
+    /// pattern as execute_trade's trade_destination constraint).
     pub fn close_position(
         ctx: Context<ClosePosition>,
         returned_amount: u64,
+        dex_program: Pubkey,
     ) -> Result<()> {
         let vault = &mut ctx.accounts.vault;
+        let config = &ctx.accounts.vault_config;
 
         // Check executor is authorized
         require!(
@@ -231,6 +235,19 @@ pub mod vault {
         require!(
             vault.current_open_positions > 0,
             VaultError::NoOpenPositions
+        );
+
+        // Check DEX is allowed
+        require!(
+            config.allowed_dexs.contains(&dex_program),
+            VaultError::DexNotAllowed
+        );
+
+        // Constrain return_source: must be owned by the specified DEX program.
+        // This prevents the executor from inflating available_sol from an arbitrary account.
+        require!(
+            *ctx.accounts.return_source.owner == dex_program,
+            VaultError::InvalidReturnSource
         );
 
         // Decrement open positions
@@ -428,8 +445,14 @@ pub struct ClosePosition<'info> {
         bump = vault.bump
     )]
     pub vault: Account<'info, VaultAccount>,
+    #[account(
+        seeds = [b"vault_config", vault.key().as_ref()],
+        bump
+    )]
+    pub vault_config: Account<'info, VaultConfig>,
     pub executor: Signer<'info>,
     /// CHECK: This is the source account returning SOL from a closed position (e.g., DEX pool).
+    /// Constrained to be owned by the specified DEX program in the instruction logic.
     #[account(mut)]
     pub return_source: UncheckedAccount<'info>,
     pub system_program: Program<'info, System>,
@@ -463,6 +486,8 @@ pub enum VaultError {
     InvalidAuthority,
     #[msg("Trade destination not owned by the specified DEX program")]
     InvalidTradeDestination,
+    #[msg("Return source not owned by the specified DEX program")]
+    InvalidReturnSource,
     #[msg("No open positions to close")]
     NoOpenPositions,
 }

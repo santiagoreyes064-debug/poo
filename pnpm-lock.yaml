@@ -140,6 +140,9 @@ importers:
       '@copy-trading/shared-types':
         specifier: workspace:*
         version: link:../../packages/shared-types
+      '@copy-trading/vault-sdk':
+        specifier: workspace:*
+        version: link:../../packages/vault-sdk
       ioredis:
         specifier: ^5.4.0
         version: 5.11.1

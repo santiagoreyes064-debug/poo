@@ -279,6 +279,8 @@ export async function buildExecuteTradeInstruction(
  * Builds the close_position instruction without sending it.
  * Called by the execution service after a trade settles to decrement
  * current_open_positions and return SOL to available_sol.
+ * The return_source must be owned by the specified DEX program (same
+ * constraint pattern as execute_trade's trade_destination).
  * @param params - Close position parameters
  * @returns TransactionInstruction ready to be included in a transaction
  */
@@ -288,15 +290,18 @@ export async function buildClosePositionInstruction(
     vaultAuthority: PublicKey;
     returnedAmount: BN;
     returnSource: PublicKey;
+    dexProgram: PublicKey;
   }
 ): Promise<TransactionInstruction> {
   const program = getProgram(provider);
   const [vaultPDA] = getVaultPDA(params.vaultAuthority);
+  const [vaultConfigPDA] = getVaultConfigPDA(vaultPDA);
 
   const ix = await program.methods
-    .closePosition(params.returnedAmount)
+    .closePosition(params.returnedAmount, params.dexProgram)
     .accounts({
       vault: vaultPDA,
+      vaultConfig: vaultConfigPDA,
       executor: provider.wallet.publicKey,
       returnSource: params.returnSource,
       systemProgram: SystemProgram.programId,

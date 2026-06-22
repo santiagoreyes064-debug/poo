@@ -114,6 +114,8 @@ services:
       dockerfile: apps/execution/Dockerfile
     environment:
       <<: *common-env
+      EXECUTOR_PRIVATE_KEY: ${EXECUTOR_PRIVATE_KEY:-}
+      PAPER_TRADING: ${PAPER_TRADING:-false}
     depends_on:
       postgres:
         condition: service_healthy

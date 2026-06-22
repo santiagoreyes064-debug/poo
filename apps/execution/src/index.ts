@@ -9,6 +9,14 @@ import {
   CONSUMER_GROUPS,
   CopyTradeStatus,
 } from '@copy-trading/shared-types';
+import {
+  buildExecuteTradeInstruction,
+  buildClosePositionInstruction,
+  getVaultPDA,
+  PublicKey,
+  BN,
+} from '@copy-trading/vault-sdk';
+import type { AnchorProvider } from '@copy-trading/vault-sdk';
 
 export const SERVICE_NAME = 'execution';
 
@@ -23,6 +31,99 @@ const HELIUS_RPC_URL = process.env.HELIUS_RPC_URL ?? 'https://mainnet.helius-rpc
 const PAPER_TRADING = process.env.PAPER_TRADING === 'true';
 const ORDER_DEADLINE_MS = 3000; // Discard orders older than 3 seconds
 const EXECUTOR_PRIVATE_KEY = process.env.EXECUTOR_PRIVATE_KEY ?? '';
+
+// Jupiter V6 program address (used as the allowed DEX program for vault constraints)
+const JUPITER_PROGRAM_ID = new PublicKey('JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4');
+
+// ==================== Executor Keypair ====================
+
+/**
+ * Loads the executor keypair from a private key string.
+ * Supports both base58-encoded secret keys and JSON array format (Uint8Array).
+ */
+export function loadExecutorKeypair(privateKey: string): { publicKey: PublicKey; secretKey: Uint8Array } {
+  let secretKey: Uint8Array;
+
+  // Try JSON array format first (e.g., [1,2,3,...])
+  if (privateKey.startsWith('[')) {
+    try {
+      const parsed = JSON.parse(privateKey) as number[];
+      secretKey = new Uint8Array(parsed);
+    } catch {
+      throw new Error('Invalid EXECUTOR_PRIVATE_KEY: failed to parse JSON array');
+    }
+  } else {
+    // Base58 format
+    try {
+      // Decode base58 using a simple decoder (same as bs58)
+      secretKey = decodeBase58(privateKey);
+    } catch {
+      throw new Error('Invalid EXECUTOR_PRIVATE_KEY: failed to decode base58');
+    }
+  }
+
+  if (secretKey.length !== 64) {
+    throw new Error(`Invalid EXECUTOR_PRIVATE_KEY: expected 64 bytes, got ${secretKey.length}`);
+  }
+
+  // The public key is the last 32 bytes of a 64-byte ed25519 secret key
+  const publicKey = new PublicKey(secretKey.slice(32));
+  return { publicKey, secretKey };
+}
+
+/**
+ * Simple base58 decoder for Solana private keys.
+ */
+function decodeBase58(str: string): Uint8Array {
+  const ALPHABET = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+  const BASE = 58;
+
+  const bytes: number[] = [0];
+  for (const char of str) {
+    const value = ALPHABET.indexOf(char);
+    if (value === -1) throw new Error(`Invalid base58 character: ${char}`);
+
+    for (let i = 0; i < bytes.length; i++) {
+      bytes[i] = bytes[i] * BASE + (i === 0 ? value : 0);
+    }
+
+    let carry = value;
+    for (let i = 0; i < bytes.length; i++) {
+      bytes[i] += carry;
+      carry = (bytes[i] >> 8) & 0xff;
+      bytes[i] &= 0xff;
+      if (carry > 0 && i === bytes.length - 1) {
+        bytes.push(0);
+      }
+    }
+  }
+
+  // Handle leading zeros (1's in base58)
+  let leadingZeros = 0;
+  for (const char of str) {
+    if (char === '1') leadingZeros++;
+    else break;
+  }
+
+  const result = new Uint8Array(leadingZeros + bytes.length);
+  for (let i = 0; i < bytes.length; i++) {
+    result[leadingZeros + bytes.length - 1 - i] = bytes[i];
+  }
+  return result;
+}
+
+/**
+ * Creates a minimal provider-like object for the vault-sdk instruction builders.
+ * This is used to build instructions only (not send transactions).
+ */
+function getExecutorProvider(keypair: { publicKey: PublicKey; secretKey: Uint8Array }): AnchorProvider {
+  // The vault-sdk instruction builders only need provider.wallet.publicKey
+  // to set the executor account. The actual signing happens separately.
+  return {
+    wallet: { publicKey: keypair.publicKey },
+    connection: { rpcEndpoint: HELIUS_RPC_URL },
+  } as unknown as AnchorProvider;
+}
 
 // ==================== State ====================
 
@@ -223,13 +324,19 @@ export async function processOrder(
     // This service IS the executor authority - it loads the keypair from EXECUTOR_PRIVATE_KEY
     // and uses it to sign transactions through the vault program. No user wallet
     // signature is needed for trades; that is the whole point of the vault pattern.
+    //
+    // Flow:
+    // 1. Build execute_trade instruction via vault-sdk (enforces on-chain risk limits)
+    // 2. Get Jupiter swap quote and transaction for the actual DEX swap
+    // 3. Combine both instructions into a single atomic transaction
+    // 4. Sign with executor keypair and submit
     const amountLamports = Math.floor(amountSol * 1e9).toString();
     const quote = await getJupiterQuote(tokenIn, tokenOut, amountLamports, maxSlippageBps);
 
     // Get vault public key for the user
     const vault = await prisma.vault.findFirst({
       where: { userId, isPaused: false },
-      select: { publicKey: true },
+      select: { publicKey: true, authority: true },
     });
 
     if (!vault) {
@@ -239,6 +346,27 @@ export async function processOrder(
     if (!EXECUTOR_PRIVATE_KEY) {
       throw new Error('EXECUTOR_PRIVATE_KEY not configured');
     }
+
+    // Load the executor keypair from the configured private key.
+    // Supports both base58-encoded and JSON array formats.
+    const executorKeypair = loadExecutorKeypair(EXECUTOR_PRIVATE_KEY);
+
+    // Build the vault's execute_trade instruction via vault-sdk.
+    // This enforces on-chain risk limits (max trade size, daily loss, position limits)
+    // before any funds leave the vault PDA.
+    // NOTE: In production, the provider is constructed with the executor's keypair and
+    // an RPC connection. Here we build the instruction for inclusion in the transaction.
+    const vaultAuthority = new PublicKey(vault.authority ?? vault.publicKey);
+    const executeTradeIx = await buildExecuteTradeInstruction(
+      getExecutorProvider(executorKeypair),
+      {
+        vaultAuthority,
+        tradeAmount: new BN(amountLamports),
+        tokenMint: new PublicKey(tokenOut),
+        dexProgram: JUPITER_PROGRAM_ID,
+        tradeDestination: JUPITER_PROGRAM_ID, // Jupiter routes through its own program accounts
+      },
+    );
 
     // Build the swap transaction with the vault as the payer
     // The executor signs with its authority key to authorize via the vault program

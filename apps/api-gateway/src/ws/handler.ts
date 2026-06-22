@@ -95,7 +95,9 @@ export async function wsHandler(app: FastifyInstance): Promise<void> {
           }
 
           case 'SIGNING_RESPONSE' as WsMessageType: {
-            // Forward signing response to the execution service via Redis
+            // RESERVED FOR FUTURE USE (v2): Direct-wallet signing mode.
+            // In the current vault executor model, this path is not active.
+            // Retained for when users can optionally sign trades themselves.
             const signingResponse = message.payload as SigningResponse;
             handleSigningResponse(userId, signingResponse);
             break;
@@ -125,11 +127,17 @@ export async function wsHandler(app: FastifyInstance): Promise<void> {
 
 /**
  * Handle signing response from the client.
- * In production, this publishes to Redis for the execution service to pick up.
+ *
+ * RESERVED FOR FUTURE USE (v2): This handler is a placeholder for a planned
+ * direct-wallet signing mode where users can optionally sign individual trades
+ * themselves instead of delegating to the executor. In the current vault executor
+ * model, all trades are signed by the executor keypair and this code path is not
+ * active. Keeping it here to avoid re-implementing the WebSocket plumbing when
+ * the feature is enabled.
  */
 function handleSigningResponse(userId: string, response: SigningResponse): void {
-  // In production: publish to Redis channel `signing:responses:{userId}`
-  // For now, just log it
+  // v2 feature: publish to Redis channel `signing:responses:{userId}`
+  // for the execution service to pick up user-signed transactions
   void userId;
   void response;
 }
@@ -137,6 +145,11 @@ function handleSigningResponse(userId: string, response: SigningResponse): void 
 /**
  * Forward a signing request to the user via WebSocket.
  * Called when a message is received from Redis pub/sub on `signing:requests:{userId}`.
+ *
+ * RESERVED FOR FUTURE USE (v2): This function supports the planned direct-wallet
+ * signing mode. In the current vault executor model, the executor signs all
+ * trades and this is not called. Retained to preserve the WebSocket plumbing
+ * for when direct-wallet mode is enabled.
  */
 export function forwardSigningRequest(userId: string, request: unknown): void {
   const message: WsMessage = {

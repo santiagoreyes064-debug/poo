@@ -23,6 +23,20 @@ export async function buildApp(opts: {
     logger: process.env.NODE_ENV !== 'test',
   });
 
+  // Resolve JWT secret with production safety check
+  const jwtSecret = opts.jwtSecret || process.env.JWT_SECRET || 'dev-secret-change-in-production';
+  const isProduction = process.env.NODE_ENV === 'production';
+
+  if (isProduction) {
+    const insecureValues = ['dev-secret-change-in-production', 'dev-jwt-secret'];
+    if (!process.env.JWT_SECRET || insecureValues.includes(jwtSecret)) {
+      throw new Error(
+        'FATAL: JWT_SECRET must be set to a secure value in production. ' +
+        'Cannot use default/dev secret values.'
+      );
+    }
+  }
+
   // CORS
   await app.register(cors, {
     origin: true,
@@ -39,7 +53,7 @@ export async function buildApp(opts: {
 
   // JWT
   await app.register(fastifyJwt, {
-    secret: opts.jwtSecret || process.env.JWT_SECRET || 'dev-secret-change-in-production',
+    secret: jwtSecret,
     sign: {
       expiresIn: '7d',
     },
