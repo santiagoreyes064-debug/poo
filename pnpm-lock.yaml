@@ -20,6 +20,9 @@ importers:
       prettier:
         specifier: ^3.2.0
         version: 3.8.4
+      tsx:
+        specifier: ^4.7.0
+        version: 4.22.4
       turbo:
         specifier: ^2.0.0
         version: 2.9.18
@@ -42,6 +45,9 @@ importers:
         specifier: ^5.4.0
         version: 5.11.1
     devDependencies:
+      tsx:
+        specifier: ^4.7.0
+        version: 4.22.4
       typescript:
         specifier: ^5.4.0
         version: 5.9.3
@@ -125,6 +131,9 @@ importers:
         specifier: ^5.4.0
         version: 5.11.1
     devDependencies:
+      tsx:
+        specifier: ^4.7.0
+        version: 4.22.4
       typescript:
         specifier: ^5.4.0
         version: 5.9.3
@@ -147,6 +156,9 @@ importers:
         specifier: ^5.4.0
         version: 5.11.1
     devDependencies:
+      tsx:
+        specifier: ^4.7.0
+        version: 4.22.4
       typescript:
         specifier: ^5.4.0
         version: 5.9.3
@@ -236,6 +248,9 @@ importers:
         specifier: ^5.4.0
         version: 5.11.1
     devDependencies:
+      tsx:
+        specifier: ^4.7.0
+        version: 4.22.4
       typescript:
         specifier: ^5.4.0
         version: 5.9.3
@@ -258,6 +273,9 @@ importers:
         specifier: ^5.4.0
         version: 5.11.1
     devDependencies:
+      tsx:
+        specifier: ^4.7.0
+        version: 4.22.4
       typescript:
         specifier: ^5.4.0
         version: 5.9.3
@@ -283,6 +301,9 @@ importers:
       '@types/ws':
         specifier: ^8.5.0
         version: 8.18.1
+      tsx:
+        specifier: ^4.7.0
+        version: 4.22.4
       typescript:
         specifier: ^5.4.0
         version: 5.9.3
