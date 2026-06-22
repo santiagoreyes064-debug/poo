@@ -9,7 +9,10 @@ export function useVaultData() {
   const { vault, transactions, isLoading, error, fetchVault, fetchTransactions } = useVaultStore();
 
   const fetchData = useCallback(async () => {
-    if (!token) return;
+    if (!token) {
+      useVaultStore.setState({ isLoading: false });
+      return;
+    }
     await Promise.all([fetchVault(token), fetchTransactions(token)]);
   }, [token, fetchVault, fetchTransactions]);
 

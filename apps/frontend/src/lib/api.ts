@@ -63,6 +63,13 @@ export const tradersApi = {
     );
   },
 
+  add: (token: string, walletAddress: string, label?: string) =>
+    apiRequest<TraderResponse>('/api/v1/traders/add', {
+      method: 'POST',
+      body: { walletAddress, ...(label ? { label } : {}) },
+      token,
+    }),
+
   getById: (token: string, traderId: string) =>
     apiRequest<TraderResponse>(`/api/v1/traders/${traderId}`, { token }),
 
@@ -86,6 +93,9 @@ export const copyApi = {
 
   create: (token: string, data: CreateCopyRelationRequest) =>
     apiRequest<CopyRelationResponse>('/api/v1/copy', { method: 'POST', body: data, token }),
+
+  subscribe: (token: string, data: SubscribeCopyRequest) =>
+    apiRequest<CopyRelationResponse>('/api/v1/copy/subscribe', { method: 'POST', body: data, token }),
 
   update: (token: string, relationId: string, data: UpdateCopyRelationRequest) =>
     apiRequest<CopyRelationResponse>(`/api/v1/copy/${relationId}`, {
@@ -135,6 +145,9 @@ export const dashboardApi = {
       `/api/v1/dashboard/trades?limit=${limit}`,
       { token },
     ),
+
+  getTokens: (token: string) =>
+    apiRequest<{ tokens: TokenBreakdownResponse[] }>('/api/v1/dashboard/tokens', { token }),
 };
 
 // Type definitions for API responses
@@ -199,6 +212,17 @@ export interface CopyRelationResponse {
 }
 
 export interface CreateCopyRelationRequest {
+  traderId: string;
+  copyMode: string;
+  fixedAmountSol?: number;
+  proportionPct?: number;
+  maxTradeSizeSol: number;
+  maxSlippageBps: number;
+  stopLossPct?: number;
+  takeProfitPct?: number;
+}
+
+export interface SubscribeCopyRequest {
   traderId: string;
   copyMode: string;
   fixedAmountSol?: number;
@@ -284,4 +308,10 @@ export interface DashboardSummary {
   activeTraders: number;
   openPositions: number;
   totalValue: number;
+}
+
+export interface TokenBreakdownResponse {
+  mint: string;
+  count: number;
+  totalPnl: number;
 }

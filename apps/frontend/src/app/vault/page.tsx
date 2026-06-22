@@ -1,134 +1,262 @@
 'use client';
 
-import { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { useState, useEffect } from 'react';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { useVaultStore } from '@/stores/useVaultStore';
 import { useVaultData } from '@/hooks/useVaultData';
-import { formatSol, cn } from '@/lib/utils';
-import { DexName } from '@copy-trading/shared-types';
-import { Pause, Play, Plus } from 'lucide-react';
+import { usePositionsData } from '@/hooks/usePositionsData';
+import { tradersApi, copyApi, type TraderResponse, type VaultResponse } from '@/lib/api';
+import { formatSol, truncateAddress, cn } from '@/lib/utils';
+import {
+  ArrowLeft, Heart, Archive, Plus, Copy, Pencil, Check,
+  Pause, Play, ArrowDownToLine, ArrowUpFromLine, Wallet,
+} from 'lucide-react';
 
-const ALL_DEXS = [DexName.JUPITER, DexName.RAYDIUM, DexName.ORCA, DexName.METEORA];
+// ─── Wallet List View ───────────────────────────────────────────────────────
 
-function CreateVaultForm() {
+function WalletListView({ onSelectVault }: { onSelectVault: (vault: VaultResponse) => void }) {
   const token = useAuthStore((s) => s.token);
-  const createVault = useVaultStore((s) => s.createVault);
-  const [maxTradeSize, setMaxTradeSize] = useState('2');
-  const [maxDailyLoss, setMaxDailyLoss] = useState('5');
-  const [maxSlippage, setMaxSlippage] = useState('100');
-  const [maxOpenPositions, setMaxOpenPositions] = useState('5');
-  const [allowedDexs, setAllowedDexs] = useState<string[]>([DexName.JUPITER]);
+  const { vault, isLoading } = useVaultData();
+  const { vaultMetadata, updateVaultMetadata, createVault } = useVaultStore();
+  const [tab, setTab] = useState('all');
+  const [creating, setCreating] = useState(false);
+
+  const metadata = vault ? vaultMetadata.find((m) => m.id === vault.id) : null;
+  const vaults = vault ? [{ vault, metadata }] : [];
+
+  const filtered = vaults.filter(({ metadata: m }) => {
+    if (tab === 'favorites') return m?.isFavorite;
+    if (tab === 'archived') return m?.isArchived;
+    return true;
+  });
 
   const handleCreate = async () => {
     if (!token) return;
-    await createVault(token, {
-      maxTradeSizeSol: parseFloat(maxTradeSize),
-      maxDailyLossSol: parseFloat(maxDailyLoss),
-      maxSlippageBps: parseInt(maxSlippage, 10),
-      maxOpenPositions: parseInt(maxOpenPositions, 10),
-      allowedDexs,
-    });
+    setCreating(true);
+    try {
+      await createVault(token, {
+        maxTradeSizeSol: 2,
+        maxDailyLossSol: 5,
+        maxSlippageBps: 100,
+        maxOpenPositions: 5,
+        allowedDexs: ['JUPITER'],
+      });
+    } catch {
+      // Error handled by store
+    } finally {
+      setCreating(false);
+    }
   };
 
-  const toggleDex = (dex: string) => {
-    setAllowedDexs((prev) =>
-      prev.includes(dex) ? prev.filter((d) => d !== dex) : [...prev, dex],
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-16">
+        <div className="text-gray-400">Loading wallets...</div>
+      </div>
     );
-  };
+  }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Create Vault</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <p className="text-sm text-gray-400">
-          Set up your non-custodial vault to start copy trading.
-        </p>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div>
-            <label className="text-sm text-gray-400 block mb-1">Max Trade Size (SOL)</label>
-            <Input type="number" value={maxTradeSize} onChange={(e) => setMaxTradeSize(e.target.value)} min="0" step="0.1" />
-          </div>
-          <div>
-            <label className="text-sm text-gray-400 block mb-1">Max Daily Loss (SOL)</label>
-            <Input type="number" value={maxDailyLoss} onChange={(e) => setMaxDailyLoss(e.target.value)} min="0" step="0.1" />
-          </div>
-          <div>
-            <label className="text-sm text-gray-400 block mb-1">Max Slippage (bps)</label>
-            <Input type="number" value={maxSlippage} onChange={(e) => setMaxSlippage(e.target.value)} min="0" step="10" />
-          </div>
-          <div>
-            <label className="text-sm text-gray-400 block mb-1">Max Open Positions</label>
-            <Input type="number" value={maxOpenPositions} onChange={(e) => setMaxOpenPositions(e.target.value)} min="1" step="1" />
-          </div>
+    <div className="space-y-6">
+      <h1 className="text-2xl font-bold">Wallets</h1>
+
+      {!token && (
+        <div className="rounded-lg border border-gray-700 bg-gray-800/50 p-6 text-center">
+          <Wallet className="h-8 w-8 text-gray-500 mx-auto mb-3" />
+          <p className="text-gray-400">Connect your wallet to manage vaults</p>
         </div>
-        <div>
-          <label className="text-sm text-gray-400 block mb-2">Allowed DEXs</label>
-          <div className="flex flex-wrap gap-2">
-            {ALL_DEXS.map((dex) => (
-              <button
-                key={dex}
-                onClick={() => toggleDex(dex)}
-                className={cn(
-                  'px-3 py-1 rounded-md text-sm border transition-colors',
-                  allowedDexs.includes(dex)
-                    ? 'border-brand-purple bg-brand-purple/10 text-brand-purple'
-                    : 'border-gray-700 text-gray-400 hover:border-gray-500',
-                )}
+      )}
+
+      <Tabs value={tab} onValueChange={setTab}>
+        <TabsList>
+          <TabsTrigger value="all">All</TabsTrigger>
+          <TabsTrigger value="favorites">Favorites</TabsTrigger>
+          <TabsTrigger value="archived">Archived</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value={tab}>
+          <div className="space-y-3 mt-4">
+            {filtered.length === 0 && token && (
+              <p className="text-gray-500 text-center py-8">
+                {tab === 'favorites' ? 'No favorite wallets yet' :
+                 tab === 'archived' ? 'No archived wallets' :
+                 'No wallets yet. Create one to get started.'}
+              </p>
+            )}
+
+            {filtered.map(({ vault: v, metadata: m }) => (
+              <Card
+                key={v.id}
+                className="cursor-pointer hover:border-gray-600 transition-colors"
+                onClick={() => onSelectVault(v)}
               >
-                {dex}
-              </button>
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <h3 className="font-semibold text-lg truncate">
+                          {m?.name || 'My Wallet'}
+                        </h3>
+                        <Badge variant={v.isPaused ? 'warning' : 'success'} className="text-xs">
+                          {v.isPaused ? 'Paused' : 'Active'}
+                        </Badge>
+                      </div>
+                      <p className="text-sm text-gray-400 font-mono mt-0.5">
+                        {truncateAddress(v.publicKey, 6)}
+                      </p>
+                      <p className="text-sm text-brand-green font-semibold mt-1">
+                        {formatSol(v.availableSol)}
+                      </p>
+                      <p className="text-xs text-gray-500 mt-1">Click to view details</p>
+                    </div>
+                    <div className="flex items-center gap-2 ml-4">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (m) updateVaultMetadata(v.id, { isFavorite: !m.isFavorite });
+                        }}
+                        className="p-2 rounded-md hover:bg-gray-800 transition-colors"
+                      >
+                        <Heart
+                          className={cn('h-4 w-4', m?.isFavorite ? 'fill-red-500 text-red-500' : 'text-gray-500')}
+                        />
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (m) updateVaultMetadata(v.id, { isArchived: !m.isArchived });
+                        }}
+                        className="p-2 rounded-md hover:bg-gray-800 transition-colors"
+                      >
+                        <Archive
+                          className={cn('h-4 w-4', m?.isArchived ? 'text-yellow-500' : 'text-gray-500')}
+                        />
+                      </button>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
             ))}
           </div>
-        </div>
-        <Button onClick={handleCreate} className="w-full">
-          <Plus className="h-4 w-4 mr-2" /> Create Vault
-        </Button>
-      </CardContent>
-    </Card>
+        </TabsContent>
+      </Tabs>
+
+      <Button
+        onClick={handleCreate}
+        disabled={!token || creating}
+        className="w-full bg-gradient-to-r from-pink-500 to-red-500 hover:from-pink-600 hover:to-red-600 text-white font-semibold py-3"
+      >
+        <Plus className="h-4 w-4 mr-2" />
+        {creating ? 'Creating...' : '+ Create New Wallet'}
+      </Button>
+    </div>
   );
 }
 
-function VaultManagement() {
+// ─── Wallet Detail View ─────────────────────────────────────────────────────
+
+function WalletDetailView({ vault, onBack }: { vault: VaultResponse; onBack: () => void }) {
   const token = useAuthStore((s) => s.token);
-  const { vault, transactions } = useVaultData();
-  const { deposit, withdraw, updateRiskParams, pause, resume } = useVaultStore();
+  const { vaultMetadata, updateVaultMetadata, deposit, withdraw, pause, resume, fetchVault } = useVaultStore();
+  const { trades, tokens, totalPnl, isLoading: positionsLoading } = usePositionsData();
+
+  const metadata = vaultMetadata.find((m) => m.id === vault.id);
+  const [editingName, setEditingName] = useState(false);
+  const [nameInput, setNameInput] = useState(metadata?.name || 'My Wallet');
+  const [copied, setCopied] = useState(false);
+  const [walletInput, setWalletInput] = useState('');
+  const [addingTrader, setAddingTrader] = useState(false);
+  const [addStatus, setAddStatus] = useState<string | null>(null);
+  const [topTraders, setTopTraders] = useState<TraderResponse[]>([]);
+
+  // Deposit/Withdraw dialog state
+  const [showDeposit, setShowDeposit] = useState(false);
+  const [showWithdraw, setShowWithdraw] = useState(false);
   const [depositAmount, setDepositAmount] = useState('');
   const [withdrawAmount, setWithdrawAmount] = useState('');
-  const [editingRisk, setEditingRisk] = useState(false);
-  const [riskForm, setRiskForm] = useState({
-    maxTradeSizeSol: vault?.maxTradeSizeSol ?? 2,
-    maxDailyLossSol: vault?.maxDailyLossSol ?? 5,
-    maxSlippageBps: vault?.maxSlippageBps ?? 100,
-    maxOpenPositions: vault?.maxOpenPositions ?? 5,
-    allowedDexs: vault?.allowedDexs ?? [DexName.JUPITER],
-    tokenBlacklist: vault?.tokenBlacklist ?? [],
-  });
+  const [actionLoading, setActionLoading] = useState(false);
 
-  if (!vault) return null;
+  // Fetch top traders
+  useEffect(() => {
+    tradersApi.list(token, { sortBy: 'roi7d', order: 'desc', limit: 3 })
+      .then(({ traders }) => setTopTraders(traders))
+      .catch(() => {});
+  }, [token]);
+
+  const hasBalance = vault.availableSol > 0;
+  const hasCopyRelations = trades.length > 0;
+  const statusText = !hasBalance && !hasCopyRelations
+    ? 'Pending setup - Add SOL - Track a wallet'
+    : vault.isPaused ? 'Paused' : 'Active';
+
+  const handleCopyAddress = () => {
+    navigator.clipboard.writeText(vault.publicKey);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleSaveName = () => {
+    updateVaultMetadata(vault.id, { name: nameInput });
+    setEditingName(false);
+  };
+
+  const handleAddTrader = async () => {
+    if (!token || !walletInput.trim()) return;
+    setAddingTrader(true);
+    setAddStatus(null);
+    try {
+      const trader = await tradersApi.add(token, walletInput.trim());
+      await copyApi.subscribe(token, {
+        traderId: trader.id,
+        copyMode: 'FIXED',
+        fixedAmountSol: vault.maxTradeSizeSol,
+        maxTradeSizeSol: vault.maxTradeSizeSol,
+        maxSlippageBps: vault.maxSlippageBps,
+      });
+      setAddStatus('Successfully added and subscribed!');
+      setWalletInput('');
+    } catch (err) {
+      setAddStatus(err instanceof Error ? err.message : 'Failed to add trader');
+    } finally {
+      setAddingTrader(false);
+    }
+  };
 
   const handleDeposit = async () => {
     if (!token || !depositAmount) return;
-    await deposit(token, parseFloat(depositAmount), 'pending-signature');
-    setDepositAmount('');
+    setActionLoading(true);
+    try {
+      await deposit(token, parseFloat(depositAmount), 'pending-signature');
+      await fetchVault(token);
+      setDepositAmount('');
+      setShowDeposit(false);
+    } catch {
+      // Error handled by store
+    } finally {
+      setActionLoading(false);
+    }
   };
 
   const handleWithdraw = async () => {
     if (!token || !withdrawAmount) return;
-    await withdraw(token, parseFloat(withdrawAmount), 'pending-signature');
-    setWithdrawAmount('');
-  };
-
-  const handleSaveRisk = async () => {
-    if (!token) return;
-    await updateRiskParams(token, riskForm);
-    setEditingRisk(false);
+    const amount = parseFloat(withdrawAmount);
+    if (amount > vault.availableSol) return;
+    setActionLoading(true);
+    try {
+      await withdraw(token, amount, 'pending-signature');
+      await fetchVault(token);
+      setWithdrawAmount('');
+      setShowWithdraw(false);
+    } catch {
+      // Error handled by store
+    } finally {
+      setActionLoading(false);
+    }
   };
 
   const handlePauseResume = async () => {
@@ -138,238 +266,287 @@ function VaultManagement() {
     } else {
       await pause(token);
     }
+    await fetchVault(token);
   };
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Vault Management</h1>
-        <Badge variant={vault.isPaused ? 'warning' : 'success'} className="text-sm">
-          {vault.isPaused ? 'PAUSED' : 'ACTIVE'}
-        </Badge>
+      {/* Header */}
+      <div className="flex items-center gap-3">
+        <button onClick={onBack} className="p-2 rounded-md hover:bg-gray-800 transition-colors">
+          <ArrowLeft className="h-5 w-5" />
+        </button>
+        <div className="flex-1">
+          <div className="flex items-center gap-2">
+            {editingName ? (
+              <div className="flex items-center gap-2">
+                <Input
+                  value={nameInput}
+                  onChange={(e) => setNameInput(e.target.value)}
+                  className="h-8 w-48"
+                  autoFocus
+                  onKeyDown={(e) => e.key === 'Enter' && handleSaveName()}
+                />
+                <button onClick={handleSaveName} className="p-1 hover:bg-gray-800 rounded">
+                  <Check className="h-4 w-4 text-brand-green" />
+                </button>
+              </div>
+            ) : (
+              <>
+                <h1 className="text-xl font-bold">{metadata?.name || 'My Wallet'}</h1>
+                <button onClick={() => setEditingName(true)} className="p-1 hover:bg-gray-800 rounded">
+                  <Pencil className="h-3.5 w-3.5 text-gray-400" />
+                </button>
+              </>
+            )}
+          </div>
+          <div className="flex items-center gap-2 mt-1">
+            <span className="text-sm text-gray-400 font-mono">{truncateAddress(vault.publicKey, 6)}</span>
+            <button onClick={handleCopyAddress} className="p-1 hover:bg-gray-800 rounded">
+              {copied ? <Check className="h-3.5 w-3.5 text-brand-green" /> : <Copy className="h-3.5 w-3.5 text-gray-400" />}
+            </button>
+          </div>
+          <p className="text-xs text-gray-500 mt-1">{statusText}</p>
+        </div>
       </div>
 
-      {/* Balance Card */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      {/* Balance + Trade Amount Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <Card>
-          <CardContent className="p-6">
-            <p className="text-sm text-gray-400">Deposited</p>
-            <p className="text-2xl font-bold mt-1">{formatSol(vault.depositedSol)}</p>
+          <CardContent className="p-5">
+            <p className="text-sm text-gray-400 mb-1">Balance</p>
+            <p className="text-2xl font-bold text-brand-green">{formatSol(vault.availableSol)}</p>
+            <p className="text-xs text-gray-500 mt-1">Deposited: {formatSol(vault.depositedSol)}</p>
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="p-6">
-            <p className="text-sm text-gray-400">Available</p>
-            <p className="text-2xl font-bold mt-1 text-brand-green">{formatSol(vault.availableSol)}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-6 flex items-center justify-center">
-            <Button
-              variant={vault.isPaused ? 'default' : 'destructive'}
-              onClick={handlePauseResume}
-              className="w-full"
-            >
-              {vault.isPaused ? (
-                <><Play className="h-4 w-4 mr-2" /> Resume</>
-              ) : (
-                <><Pause className="h-4 w-4 mr-2" /> Pause</>
-              )}
-            </Button>
+          <CardContent className="p-5">
+            <p className="text-sm text-gray-400 mb-1">Trade Amount</p>
+            <p className="text-2xl font-bold">{formatSol(vault.maxTradeSizeSol)}</p>
+            <p className="text-xs text-gray-500 mt-1">Copy Exact</p>
           </CardContent>
         </Card>
       </div>
 
-      {/* Deposit / Withdraw */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Deposit</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <Input
-              type="number"
-              placeholder="Amount in SOL"
-              value={depositAmount}
-              onChange={(e) => setDepositAmount(e.target.value)}
-              min="0"
-              step="0.1"
-            />
-            <Button onClick={handleDeposit} disabled={!depositAmount} className="w-full">
-              Deposit
-            </Button>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Withdraw</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
+      {/* Quick Actions */}
+      <div className="flex gap-3">
+        <Button
+          variant="outline"
+          className="flex-1"
+          onClick={() => setShowWithdraw(true)}
+        >
+          <ArrowUpFromLine className="h-4 w-4 mr-2" /> Withdraw
+        </Button>
+        <Button
+          variant={vault.isPaused ? 'default' : 'destructive'}
+          className="flex-1"
+          onClick={handlePauseResume}
+        >
+          {vault.isPaused ? <><Play className="h-4 w-4 mr-2" /> Resume</> : <><Pause className="h-4 w-4 mr-2" /> Pause</>}
+        </Button>
+      </div>
+
+      {/* Withdraw Dialog */}
+      {showWithdraw && (
+        <Card className="border-gray-700">
+          <CardContent className="p-5 space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="font-semibold">Withdraw SOL</h3>
+              <button onClick={() => setShowWithdraw(false)} className="text-gray-400 hover:text-white text-sm">Cancel</button>
+            </div>
+            <p className="text-xs text-gray-400">Available: {formatSol(vault.availableSol)}</p>
             <Input
               type="number"
               placeholder="Amount in SOL"
               value={withdrawAmount}
               onChange={(e) => setWithdrawAmount(e.target.value)}
               min="0"
-              step="0.1"
+              step="0.01"
               max={vault.availableSol}
             />
-            <Button onClick={handleWithdraw} disabled={!withdrawAmount} variant="outline" className="w-full">
-              Withdraw
+            {parseFloat(withdrawAmount) > vault.availableSol && (
+              <p className="text-xs text-red-400">Amount exceeds available balance</p>
+            )}
+            <Button
+              onClick={handleWithdraw}
+              disabled={!withdrawAmount || parseFloat(withdrawAmount) > vault.availableSol || actionLoading}
+              className="w-full"
+            >
+              {actionLoading ? 'Processing...' : 'Confirm Withdrawal'}
             </Button>
           </CardContent>
         </Card>
-      </div>
+      )}
 
-      {/* Risk Parameters */}
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle>Risk Parameters</CardTitle>
-          <Button size="sm" variant="outline" onClick={() => setEditingRisk(!editingRisk)}>
-            {editingRisk ? 'Cancel' : 'Edit'}
-          </Button>
-        </CardHeader>
-        <CardContent>
-          {editingRisk ? (
-            <div className="space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="text-sm text-gray-400 block mb-1">Max Trade Size (SOL)</label>
-                  <Input
-                    type="number"
-                    value={riskForm.maxTradeSizeSol}
-                    onChange={(e) => setRiskForm({ ...riskForm, maxTradeSizeSol: parseFloat(e.target.value) })}
-                  />
-                </div>
-                <div>
-                  <label className="text-sm text-gray-400 block mb-1">Max Daily Loss (SOL)</label>
-                  <Input
-                    type="number"
-                    value={riskForm.maxDailyLossSol}
-                    onChange={(e) => setRiskForm({ ...riskForm, maxDailyLossSol: parseFloat(e.target.value) })}
-                  />
-                </div>
-                <div>
-                  <label className="text-sm text-gray-400 block mb-1">Max Slippage (bps)</label>
-                  <Input
-                    type="number"
-                    value={riskForm.maxSlippageBps}
-                    onChange={(e) => setRiskForm({ ...riskForm, maxSlippageBps: parseInt(e.target.value, 10) })}
-                  />
-                </div>
-                <div>
-                  <label className="text-sm text-gray-400 block mb-1">Max Open Positions</label>
-                  <Input
-                    type="number"
-                    value={riskForm.maxOpenPositions}
-                    onChange={(e) => setRiskForm({ ...riskForm, maxOpenPositions: parseInt(e.target.value, 10) })}
-                  />
-                </div>
+      {/* Deposit Banner */}
+      <Card className="border-brand-purple/30 bg-brand-purple/5">
+        <CardContent className="p-5">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="font-semibold text-sm">Deposit SOL to Start Copy Trading</h3>
+              <p className="text-xs text-gray-400 mt-1">Send SOL to your vault address:</p>
+              <div className="flex items-center gap-2 mt-2">
+                <span className="text-xs font-mono text-gray-300 bg-gray-800 px-2 py-1 rounded">
+                  {truncateAddress(vault.publicKey, 8)}
+                </span>
+                <button onClick={handleCopyAddress} className="p-1 hover:bg-gray-800 rounded">
+                  {copied ? <Check className="h-3 w-3 text-brand-green" /> : <Copy className="h-3 w-3 text-gray-400" />}
+                </button>
               </div>
-              <div>
-                <label className="text-sm text-gray-400 block mb-2">Allowed DEXs</label>
-                <div className="flex flex-wrap gap-2">
-                  {ALL_DEXS.map((dex) => (
-                    <button
-                      key={dex}
-                      onClick={() =>
-                        setRiskForm({
-                          ...riskForm,
-                          allowedDexs: riskForm.allowedDexs.includes(dex)
-                            ? riskForm.allowedDexs.filter((d) => d !== dex)
-                            : [...riskForm.allowedDexs, dex],
-                        })
-                      }
-                      className={cn(
-                        'px-3 py-1 rounded-md text-sm border transition-colors',
-                        riskForm.allowedDexs.includes(dex)
-                          ? 'border-brand-purple bg-brand-purple/10 text-brand-purple'
-                          : 'border-gray-700 text-gray-400 hover:border-gray-500',
-                      )}
-                    >
-                      {dex}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <div>
-                <label className="text-sm text-gray-400 block mb-1">Token Blacklist (comma-separated)</label>
-                <Input
-                  type="text"
-                  value={riskForm.tokenBlacklist.join(', ')}
-                  onChange={(e) =>
-                    setRiskForm({
-                      ...riskForm,
-                      tokenBlacklist: e.target.value.split(',').map((t) => t.trim()).filter(Boolean),
-                    })
-                  }
-                  placeholder="mint1, mint2"
-                />
-              </div>
-              <Button onClick={handleSaveRisk}>Save Risk Parameters</Button>
             </div>
+            <Button size="sm" onClick={() => setShowDeposit(true)}>
+              <ArrowDownToLine className="h-4 w-4 mr-1" /> Deposit
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Deposit Dialog */}
+      {showDeposit && (
+        <Card className="border-gray-700">
+          <CardContent className="p-5 space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="font-semibold">Deposit SOL</h3>
+              <button onClick={() => setShowDeposit(false)} className="text-gray-400 hover:text-white text-sm">Cancel</button>
+            </div>
+            <p className="text-xs text-gray-400">Deposit address:</p>
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-mono text-gray-300 bg-gray-800 px-2 py-1 rounded flex-1 truncate">
+                {vault.publicKey}
+              </span>
+              <button onClick={handleCopyAddress} className="p-1 hover:bg-gray-800 rounded">
+                {copied ? <Check className="h-3 w-3 text-brand-green" /> : <Copy className="h-3 w-3 text-gray-400" />}
+              </button>
+            </div>
+            <Input
+              type="number"
+              placeholder="Amount in SOL"
+              value={depositAmount}
+              onChange={(e) => setDepositAmount(e.target.value)}
+              min="0"
+              step="0.01"
+            />
+            <Button
+              onClick={handleDeposit}
+              disabled={!depositAmount || actionLoading}
+              className="w-full"
+            >
+              {actionLoading ? 'Processing...' : 'Confirm Deposit'}
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Copy Trading Section */}
+      <Card>
+        <CardContent className="p-5 space-y-4">
+          <h3 className="font-semibold">Copy Trading</h3>
+          <div className="flex gap-2">
+            <Input
+              placeholder="Paste any Solana wallet to track..."
+              value={walletInput}
+              onChange={(e) => setWalletInput(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleAddTrader()}
+            />
+            <Button onClick={handleAddTrader} disabled={!walletInput.trim() || addingTrader}>
+              <Plus className="h-4 w-4 mr-1" />
+              {addingTrader ? '...' : 'Add'}
+            </Button>
+          </div>
+          {addStatus && (
+            <p className={cn('text-xs', addStatus.includes('Success') ? 'text-brand-green' : 'text-red-400')}>
+              {addStatus}
+            </p>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Top Traders This Week */}
+      {topTraders.length > 0 && (
+        <Card>
+          <CardContent className="p-5 space-y-3">
+            <h3 className="font-semibold text-sm text-gray-300">Top traders this week</h3>
+            <div className="space-y-2">
+              {topTraders.map((trader) => (
+                <div key={trader.id} className="flex items-center justify-between py-2 border-b border-gray-800 last:border-0">
+                  <div>
+                    <p className="text-sm font-medium">{trader.label || truncateAddress(trader.walletAddress, 4)}</p>
+                    <p className="text-xs text-gray-500">{trader.totalTrades} trades</p>
+                  </div>
+                  <div className="text-right">
+                    <p className={cn('text-sm font-semibold', trader.roi7d >= 0 ? 'text-brand-green' : 'text-red-400')}>
+                      {trader.roi7d >= 0 ? '+' : ''}{trader.roi7d.toFixed(1)}%
+                    </p>
+                    <p className="text-xs text-gray-500">{trader.winRate.toFixed(0)}% win</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Active Positions */}
+      <Card>
+        <CardContent className="p-5 space-y-3">
+          <h3 className="font-semibold">Active Positions</h3>
+          {positionsLoading ? (
+            <p className="text-sm text-gray-500">Loading positions...</p>
+          ) : trades.length === 0 ? (
+            <p className="text-sm text-gray-500">No active positions. Add a trader to start copying.</p>
           ) : (
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div>
-                <p className="text-xs text-gray-400">Max Trade Size</p>
-                <p className="font-semibold">{formatSol(vault.maxTradeSizeSol)}</p>
-              </div>
-              <div>
-                <p className="text-xs text-gray-400">Max Daily Loss</p>
-                <p className="font-semibold">{formatSol(vault.maxDailyLossSol)}</p>
-              </div>
-              <div>
-                <p className="text-xs text-gray-400">Max Slippage</p>
-                <p className="font-semibold">{vault.maxSlippageBps} bps</p>
-              </div>
-              <div>
-                <p className="text-xs text-gray-400">Max Positions</p>
-                <p className="font-semibold">{vault.maxOpenPositions}</p>
-              </div>
+            <div className="space-y-2">
+              {trades.slice(0, 10).map((trade) => (
+                <div key={trade.id} className="flex items-center justify-between py-2 border-b border-gray-800 last:border-0">
+                  <div>
+                    <p className="text-sm font-medium">
+                      {truncateAddress(trade.tokenOut, 4)}
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      {trade.dex} - {trade.status}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    {trade.pnlSol !== undefined && trade.pnlSol !== null ? (
+                      <p className={cn('text-sm font-semibold', trade.pnlSol >= 0 ? 'text-brand-green' : 'text-red-400')}>
+                        {trade.pnlSol >= 0 ? '+' : ''}{trade.pnlSol.toFixed(4)} SOL
+                      </p>
+                    ) : (
+                      <p className="text-sm text-gray-500">Pending</p>
+                    )}
+                  </div>
+                </div>
+              ))}
             </div>
           )}
         </CardContent>
       </Card>
 
-      {/* Transaction History */}
+      {/* P&L Summary */}
       <Card>
-        <CardHeader>
-          <CardTitle>Transaction History</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {transactions.length === 0 ? (
-            <p className="text-center py-8 text-gray-500">No transactions yet</p>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Type</TableHead>
-                  <TableHead>Amount</TableHead>
-                  <TableHead>Signature</TableHead>
-                  <TableHead>Time</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {transactions.map((tx) => (
-                  <TableRow key={tx.id}>
-                    <TableCell>
-                      <Badge variant={tx.type === 'DEPOSIT' ? 'success' : 'secondary'}>
-                        {tx.type}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className={cn(tx.type === 'DEPOSIT' ? 'text-brand-green' : 'text-red-400')}>
-                      {tx.type === 'DEPOSIT' ? '+' : '-'}{formatSol(tx.amount)}
-                    </TableCell>
-                    <TableCell className="font-mono text-xs text-gray-400">
-                      {tx.signature.slice(0, 8)}...{tx.signature.slice(-8)}
-                    </TableCell>
-                    <TableCell className="text-gray-400 text-sm">
-                      {new Date(tx.timestamp).toLocaleString()}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+        <CardContent className="p-5 space-y-3">
+          <h3 className="font-semibold">P&L Summary</h3>
+          <div className="flex items-center justify-between py-2">
+            <span className="text-sm text-gray-400">Total P&L</span>
+            <span className={cn('text-lg font-bold', totalPnl >= 0 ? 'text-brand-green' : 'text-red-400')}>
+              {totalPnl >= 0 ? '+' : ''}{totalPnl.toFixed(4)} SOL
+            </span>
+          </div>
+          {tokens.length > 0 && (
+            <div className="space-y-2 pt-2 border-t border-gray-800">
+              <p className="text-xs text-gray-500 uppercase tracking-wide">Per Token Breakdown</p>
+              {tokens.map((t) => (
+                <div key={t.mint} className="flex items-center justify-between py-1">
+                  <div>
+                    <p className="text-sm font-mono">{truncateAddress(t.mint, 4)}</p>
+                    <p className="text-xs text-gray-500">{t.count} trades</p>
+                  </div>
+                  <p className={cn('text-sm font-semibold', t.totalPnl >= 0 ? 'text-brand-green' : 'text-red-400')}>
+                    {t.totalPnl >= 0 ? '+' : ''}{t.totalPnl.toFixed(4)} SOL
+                  </p>
+                </div>
+              ))}
+            </div>
           )}
         </CardContent>
       </Card>
@@ -377,20 +554,22 @@ function VaultManagement() {
   );
 }
 
+// ─── Main Page ──────────────────────────────────────────────────────────────
+
 export default function VaultPage() {
-  const { vault, isLoading } = useVaultData();
+  const [selectedVault, setSelectedVault] = useState<VaultResponse | null>(null);
+  const { vault } = useVaultStore();
 
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center py-16">
-        <div className="text-gray-400">Loading vault...</div>
-      </div>
-    );
+  // Sync store vault updates to selectedVault
+  useEffect(() => {
+    if (selectedVault && vault && vault.id === selectedVault.id) {
+      setSelectedVault(vault);
+    }
+  }, [vault, selectedVault]);
+
+  if (selectedVault) {
+    return <WalletDetailView vault={selectedVault} onBack={() => setSelectedVault(null)} />;
   }
 
-  if (!vault) {
-    return <CreateVaultForm />;
-  }
-
-  return <VaultManagement />;
+  return <WalletListView onSelectVault={setSelectedVault} />;
 }

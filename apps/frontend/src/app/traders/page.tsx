@@ -2,10 +2,14 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { Table, TableBody, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Card, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { TraderRow } from '@/components/TraderRow';
 import { tradersApi, type TraderResponse } from '@/lib/api';
 import { useAuthStore } from '@/stores/useAuthStore';
-import { ArrowUpDown } from 'lucide-react';
+import { ArrowUpDown, Plus } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 type SortField = 'roi7d' | 'roi30d' | 'winRate' | 'sharpeRatio' | 'maxDrawdown' | 'totalTrades';
 
@@ -15,6 +19,9 @@ export default function TradersPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [sortBy, setSortBy] = useState<SortField>('roi7d');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+  const [addWallet, setAddWallet] = useState('');
+  const [addingTrader, setAddingTrader] = useState(false);
+  const [addStatus, setAddStatus] = useState<string | null>(null);
 
   const fetchTraders = useCallback(async () => {
     setIsLoading(true);
@@ -44,6 +51,22 @@ export default function TradersPage() {
     }
   };
 
+  const handleAddTrader = async () => {
+    if (!token || !addWallet.trim()) return;
+    setAddingTrader(true);
+    setAddStatus(null);
+    try {
+      await tradersApi.add(token, addWallet.trim());
+      setAddStatus('Trader added successfully!');
+      setAddWallet('');
+      await fetchTraders();
+    } catch (err) {
+      setAddStatus(err instanceof Error ? err.message : 'Failed to add trader');
+    } finally {
+      setAddingTrader(false);
+    }
+  };
+
   const SortableHeader = ({ field, label }: { field: SortField; label: string }) => (
     <TableHead
       className="cursor-pointer select-none hover:text-gray-200"
@@ -70,6 +93,32 @@ export default function TradersPage() {
         <h1 className="text-2xl font-bold">Trader Leaderboard</h1>
         <p className="text-sm text-gray-400">{traders.length} traders tracked</p>
       </div>
+
+      {/* Add Trader Section */}
+      {token && (
+        <Card>
+          <CardContent className="p-4 space-y-3">
+            <h3 className="font-semibold text-sm">Add Trader</h3>
+            <div className="flex gap-2">
+              <Input
+                placeholder="Paste Solana wallet address..."
+                value={addWallet}
+                onChange={(e) => setAddWallet(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleAddTrader()}
+              />
+              <Button onClick={handleAddTrader} disabled={!addWallet.trim() || addingTrader}>
+                <Plus className="h-4 w-4 mr-1" />
+                {addingTrader ? '...' : 'Add Trader'}
+              </Button>
+            </div>
+            {addStatus && (
+              <p className={cn('text-xs', addStatus.includes('success') ? 'text-brand-green' : 'text-red-400')}>
+                {addStatus}
+              </p>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {!token && (
         <div className="rounded-lg border border-gray-700 bg-gray-800/50 p-4 text-center text-gray-400">
