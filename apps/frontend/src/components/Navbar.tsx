@@ -1,5 +1,6 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
@@ -14,6 +15,8 @@ const navLinks = [
 
 export function Navbar() {
   const pathname = usePathname();
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
 
   return (
     <nav className="sticky top-0 z-40 w-full border-b border-gray-800 bg-gray-950/80 backdrop-blur-sm">
@@ -40,7 +43,13 @@ export function Navbar() {
         </div>
 
         <div className="flex items-center">
-          <WalletMultiButton className="!bg-brand-purple hover:!bg-brand-purple/90 !h-10 !rounded-md !text-sm" />
+          {mounted ? (
+            <WalletMultiButton className="!bg-brand-purple hover:!bg-brand-purple/90 !h-10 !rounded-md !text-sm" />
+          ) : (
+            <button className="!bg-brand-purple !h-10 !rounded-md !text-sm px-4 text-white opacity-50" disabled>
+              Select Wallet
+            </button>
+          )}
         </div>
       </div>
     </nav>
