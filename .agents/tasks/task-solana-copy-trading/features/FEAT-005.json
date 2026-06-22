@@ -2,7 +2,7 @@
   "id": "FEAT-005",
   "type": "feat",
   "description": "Implement the Next.js 15 frontend with App Router, Tailwind CSS, shadcn/ui components, Phantom wallet integration, Zustand state management, and all pages (Dashboard, Leaderboard, Trader Profile, Copy Settings). Includes vault management UI for creating vaults, depositing/withdrawing, and configuring risk parameters.",
-  "status": "in_progress",
+  "status": "completed",
   "steps": [
     "Initialize apps/frontend as Next.js 15 app with App Router, TypeScript, Tailwind CSS. Configure package.json with dependencies: @solana/wallet-adapter-react, @solana/wallet-adapter-react-ui, @solana/wallet-adapter-wallets, @solana/web3.js, zustand, recharts, and shadcn/ui setup (tailwind.config.ts with dark theme: gray-950 background, brand purple #9945FF, Solana green #14F195)",
     "Create apps/frontend/src/app/layout.tsx with WalletContextProvider (Phantom adapter), QueryClientProvider, dark theme, and the shared navigation bar (sticky nav with SCT logo, Dashboard/Traders/Copy links, WalletMultiButton)",
@@ -32,5 +32,5 @@
     "Run: pnpm --filter frontend test (if tests exist)"
   ],
   "blocked_reason": null,
-  "findings": ""
+  "findings": "Build succeeds with warnings from wallet-adapter transitive dependencies (ox, viem via @walletconnect). Package name is @sct/frontend. Used pnpm --filter @sct/frontend build for verification. All 7 routes generated successfully (5 static, 1 dynamic for /traders/[id]). React 19 peer dependency warnings from wallet adapter dependencies are non-blocking."
 }
