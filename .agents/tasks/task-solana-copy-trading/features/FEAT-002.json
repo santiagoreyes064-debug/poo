@@ -2,7 +2,7 @@
   "id": "FEAT-002",
   "type": "feat",
   "description": "Implement the API Gateway service (Fastify REST + WebSocket), authentication system (wallet-based with Ed25519 nonce verification), and all REST API endpoints including vault management endpoints. This is the central service that the frontend communicates with.",
-  "status": "pending",
+  "status": "in_progress",
   "steps": [
     "Implement apps/api-gateway/src/index.ts as Fastify server with CORS, rate limiting (@fastify/rate-limit at 100 req/min per IP), JWT plugin, WebSocket support (@fastify/websocket), health check (/health), and Prometheus metrics (/metrics)",
     "Implement apps/api-gateway/src/plugins/auth.ts with JWT verification middleware, nonce generation (stored in Redis with 5-min TTL), Ed25519 signature verification using tweetnacl",
