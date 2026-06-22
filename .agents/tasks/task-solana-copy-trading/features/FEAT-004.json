@@ -2,7 +2,7 @@
   "id": "FEAT-004",
   "type": "feat",
   "description": "Implement the custom Solana on-chain vault program using Anchor framework. This program manages user vaults for non-custodial automated trading. Users deposit funds, set risk parameters enforced on-chain, and the execution service can trade within those limits without per-trade wallet signatures.",
-  "status": "in_progress",
+  "status": "completed",
   "steps": [
     "Create programs/ directory structure with Anchor project layout: programs/vault/Cargo.toml, programs/vault/Xargo.toml, programs/vault/src/lib.rs",
     "Create Anchor.toml at project root with program ID placeholder, cluster config, and test script",
@@ -28,5 +28,5 @@
     "Verify Anchor program Rust code compiles by checking syntax (anchor build requires Solana toolchain which may not be available - verify Rust syntax is correct)"
   ],
   "blocked_reason": null,
-  "findings": ""
+  "findings": "Anchor build requires Solana BPF toolchain (not available in sandbox). Rust code is syntactically correct Anchor code but cannot be compiled here. TypeScript SDK builds and all 20 tests pass. The full monorepo build (13 packages) and test suite (117 tests across all packages) pass successfully. pnpm-lock.yaml updated with @coral-xyz/anchor and @solana/web3.js dependencies for vault-sdk."
 }
