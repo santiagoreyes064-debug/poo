@@ -1,3 +1,5 @@
+export * from './redis';
+
 // ==================== Enums ====================
 
 export enum CopyMode {

@@ -38,10 +38,16 @@ importers:
       '@copy-trading/shared-types':
         specifier: workspace:*
         version: link:../../packages/shared-types
+      ioredis:
+        specifier: ^5.4.0
+        version: 5.11.1
     devDependencies:
       typescript:
         specifier: ^5.4.0
         version: 5.9.3
+      vitest:
+        specifier: ^1.6.0
+        version: 1.6.1(@types/node@20.19.43)
 
   apps/api-gateway:
     dependencies:
@@ -115,10 +121,16 @@ importers:
       '@copy-trading/shared-types':
         specifier: workspace:*
         version: link:../../packages/shared-types
+      ioredis:
+        specifier: ^5.4.0
+        version: 5.11.1
     devDependencies:
       typescript:
         specifier: ^5.4.0
         version: 5.9.3
+      vitest:
+        specifier: ^1.6.0
+        version: 1.6.1(@types/node@20.19.43)
 
   apps/execution:
     dependencies:
@@ -128,10 +140,16 @@ importers:
       '@copy-trading/shared-types':
         specifier: workspace:*
         version: link:../../packages/shared-types
+      ioredis:
+        specifier: ^5.4.0
+        version: 5.11.1
     devDependencies:
       typescript:
         specifier: ^5.4.0
         version: 5.9.3
+      vitest:
+        specifier: ^1.6.0
+        version: 1.6.1(@types/node@20.19.43)
 
   apps/frontend:
     dependencies:
@@ -151,23 +169,38 @@ importers:
       '@copy-trading/shared-types':
         specifier: workspace:*
         version: link:../../packages/shared-types
+      ioredis:
+        specifier: ^5.4.0
+        version: 5.11.1
     devDependencies:
       typescript:
         specifier: ^5.4.0
         version: 5.9.3
+      vitest:
+        specifier: ^1.6.0
+        version: 1.6.1(@types/node@20.19.43)
 
   apps/tx-parser:
     dependencies:
+      '@copy-trading/database':
+        specifier: workspace:*
+        version: link:../../packages/database
       '@copy-trading/dex-adapters':
         specifier: workspace:*
         version: link:../../packages/dex-adapters
       '@copy-trading/shared-types':
         specifier: workspace:*
         version: link:../../packages/shared-types
+      ioredis:
+        specifier: ^5.4.0
+        version: 5.11.1
     devDependencies:
       typescript:
         specifier: ^5.4.0
         version: 5.9.3
+      vitest:
+        specifier: ^1.6.0
+        version: 1.6.1(@types/node@20.19.43)
 
   apps/wallet-monitor:
     dependencies:
@@ -177,10 +210,22 @@ importers:
       '@copy-trading/shared-types':
         specifier: workspace:*
         version: link:../../packages/shared-types
+      ioredis:
+        specifier: ^5.4.0
+        version: 5.11.1
+      ws:
+        specifier: ^8.17.0
+        version: 8.21.0(bufferutil@4.1.0)(utf-8-validate@6.0.6)
     devDependencies:
+      '@types/ws':
+        specifier: ^8.5.0
+        version: 8.18.1
       typescript:
         specifier: ^5.4.0
         version: 5.9.3
+      vitest:
+        specifier: ^1.6.0
+        version: 1.6.1(@types/node@20.19.43)
 
   packages/database:
     dependencies:
@@ -222,6 +267,10 @@ importers:
         version: 1.6.1(@types/node@20.19.43)
 
   packages/shared-types:
+    dependencies:
+      ioredis:
+        specifier: ^5.4.0
+        version: 5.11.1
     devDependencies:
       typescript:
         specifier: ^5.4.0

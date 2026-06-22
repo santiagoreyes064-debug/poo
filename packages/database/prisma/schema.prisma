@@ -184,6 +184,7 @@ model TraderAnalytics {
 
   trader Trader @relation(fields: [traderId], references: [id])
 
+  @@unique([traderId, windowDays])
   @@map("trader_analytics")
 }
 
