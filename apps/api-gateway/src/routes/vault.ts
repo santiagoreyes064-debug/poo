@@ -1,5 +1,5 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
-import type { Vault, VaultTransaction, VaultTransactionType } from '@copy-trading/shared-types';
+import { prisma } from '@copy-trading/database';
 import { writeAuditLog, AuditAction } from '../services/audit.js';
 
 interface VaultParams {
@@ -43,10 +43,6 @@ interface TransactionsQuery {
   type?: string;
 }
 
-// In-memory store for development
-const vaults: Vault[] = [];
-const vaultTransactions: VaultTransaction[] = [];
-
 export async function vaultRoutes(app: FastifyInstance): Promise<void> {
   // All vault routes require authentication
   app.addHook('preHandler', app.authenticate);
@@ -63,31 +59,30 @@ export async function vaultRoutes(app: FastifyInstance): Promise<void> {
     }
 
     // Check if user already has a vault
-    const existing = vaults.find((v) => v.userId === user.userId);
+    const existing = await prisma.vault.findFirst({
+      where: { userId: user.userId },
+    });
     if (existing) {
       return reply.status(409).send({ error: 'User already has a vault' });
     }
 
-    const vault: Vault = {
-      id: `vault_${Date.now()}`,
-      userId: user.userId,
-      walletId: body.walletId,
-      publicKey: body.publicKey,
-      authority: body.authority,
-      maxTradeSizeSol: body.maxTradeSizeSol || 1.0,
-      maxDailyLossSol: body.maxDailyLossSol || 5.0,
-      maxSlippageBps: body.maxSlippageBps || 300,
-      maxOpenPositions: body.maxOpenPositions || 5,
-      allowedDexs: body.allowedDexs || ['JUPITER', 'RAYDIUM'],
-      tokenBlacklist: body.tokenBlacklist || [],
-      depositedSol: 0,
-      availableSol: 0,
-      isPaused: false,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
-
-    vaults.push(vault);
+    const vault = await prisma.vault.create({
+      data: {
+        userId: user.userId,
+        walletId: body.walletId,
+        publicKey: body.publicKey,
+        authority: body.authority,
+        maxTradeSizeSol: body.maxTradeSizeSol ?? 1.0,
+        maxDailyLossSol: body.maxDailyLossSol ?? 5.0,
+        maxSlippageBps: body.maxSlippageBps ?? 300,
+        maxOpenPositions: body.maxOpenPositions ?? 5,
+        allowedDexs: body.allowedDexs ?? ['JUPITER', 'RAYDIUM'],
+        tokenBlacklist: body.tokenBlacklist ?? [],
+        depositedSol: 0,
+        availableSol: 0,
+        isPaused: false,
+      },
+    });
 
     writeAuditLog({
       userId: user.userId,
@@ -102,7 +97,9 @@ export async function vaultRoutes(app: FastifyInstance): Promise<void> {
   // GET /api/v1/vault - Get user's vault
   app.get('/', async (request, reply) => {
     const user = request.user;
-    const vault = vaults.find((v) => v.userId === user.userId);
+    const vault = await prisma.vault.findFirst({
+      where: { userId: user.userId },
+    });
 
     if (!vault) {
       return reply.status(404).send({ error: 'Vault not found' });
@@ -114,7 +111,9 @@ export async function vaultRoutes(app: FastifyInstance): Promise<void> {
   // GET /api/v1/vault/balance - Get vault balance
   app.get('/balance', async (request, reply) => {
     const user = request.user;
-    const vault = vaults.find((v) => v.userId === user.userId);
+    const vault = await prisma.vault.findFirst({
+      where: { userId: user.userId },
+    });
 
     if (!vault) {
       return reply.status(404).send({ error: 'Vault not found' });
@@ -140,25 +139,30 @@ export async function vaultRoutes(app: FastifyInstance): Promise<void> {
       return reply.status(400).send({ error: 'signature is required' });
     }
 
-    const vault = vaults.find((v) => v.userId === user.userId);
+    const vault = await prisma.vault.findFirst({
+      where: { userId: user.userId },
+    });
     if (!vault) {
       return reply.status(404).send({ error: 'Vault not found' });
     }
 
-    vault.depositedSol += amount;
-    vault.availableSol += amount;
-    vault.updatedAt = new Date();
+    const updatedVault = await prisma.vault.update({
+      where: { id: vault.id },
+      data: {
+        depositedSol: vault.depositedSol + amount,
+        availableSol: vault.availableSol + amount,
+      },
+    });
 
-    const transaction: VaultTransaction = {
-      id: `vtx_${Date.now()}`,
-      vaultId: vault.id,
-      type: 'DEPOSIT' as VaultTransactionType,
-      amount,
-      signature,
-      timestamp: new Date(),
-    };
-
-    vaultTransactions.push(transaction);
+    const transaction = await prisma.vaultTransaction.create({
+      data: {
+        vaultId: vault.id,
+        type: 'DEPOSIT',
+        amount,
+        signature,
+        timestamp: new Date(),
+      },
+    });
 
     writeAuditLog({
       userId: user.userId,
@@ -167,7 +171,7 @@ export async function vaultRoutes(app: FastifyInstance): Promise<void> {
       ipAddress: request.ip,
     });
 
-    return reply.send({ vault, transaction });
+    return reply.send({ vault: updatedVault, transaction });
   });
 
   // POST /api/v1/vault/withdraw - Record a withdrawal
@@ -183,7 +187,9 @@ export async function vaultRoutes(app: FastifyInstance): Promise<void> {
       return reply.status(400).send({ error: 'signature is required' });
     }
 
-    const vault = vaults.find((v) => v.userId === user.userId);
+    const vault = await prisma.vault.findFirst({
+      where: { userId: user.userId },
+    });
     if (!vault) {
       return reply.status(404).send({ error: 'Vault not found' });
     }
@@ -192,20 +198,23 @@ export async function vaultRoutes(app: FastifyInstance): Promise<void> {
       return reply.status(400).send({ error: 'Insufficient available balance' });
     }
 
-    vault.depositedSol -= amount;
-    vault.availableSol -= amount;
-    vault.updatedAt = new Date();
+    const updatedVault = await prisma.vault.update({
+      where: { id: vault.id },
+      data: {
+        depositedSol: vault.depositedSol - amount,
+        availableSol: vault.availableSol - amount,
+      },
+    });
 
-    const transaction: VaultTransaction = {
-      id: `vtx_${Date.now()}`,
-      vaultId: vault.id,
-      type: 'WITHDRAWAL' as VaultTransactionType,
-      amount,
-      signature,
-      timestamp: new Date(),
-    };
-
-    vaultTransactions.push(transaction);
+    const transaction = await prisma.vaultTransaction.create({
+      data: {
+        vaultId: vault.id,
+        type: 'WITHDRAWAL',
+        amount,
+        signature,
+        timestamp: new Date(),
+      },
+    });
 
     writeAuditLog({
       userId: user.userId,
@@ -214,7 +223,7 @@ export async function vaultRoutes(app: FastifyInstance): Promise<void> {
       ipAddress: request.ip,
     });
 
-    return reply.send({ vault, transaction });
+    return reply.send({ vault: updatedVault, transaction });
   });
 
   // PATCH /api/v1/vault/settings - Update vault risk parameters
@@ -222,33 +231,44 @@ export async function vaultRoutes(app: FastifyInstance): Promise<void> {
     const user = request.user;
     const body = request.body;
 
-    const vault = vaults.find((v) => v.userId === user.userId);
+    const vault = await prisma.vault.findFirst({
+      where: { userId: user.userId },
+    });
     if (!vault) {
       return reply.status(404).send({ error: 'Vault not found' });
     }
 
-    if (body.maxTradeSizeSol !== undefined) vault.maxTradeSizeSol = body.maxTradeSizeSol;
-    if (body.maxDailyLossSol !== undefined) vault.maxDailyLossSol = body.maxDailyLossSol;
-    if (body.maxSlippageBps !== undefined) vault.maxSlippageBps = body.maxSlippageBps;
-    if (body.maxOpenPositions !== undefined) vault.maxOpenPositions = body.maxOpenPositions;
-    if (body.allowedDexs !== undefined) vault.allowedDexs = body.allowedDexs;
-    if (body.tokenBlacklist !== undefined) vault.tokenBlacklist = body.tokenBlacklist;
-    vault.updatedAt = new Date();
+    const updateData: Record<string, unknown> = {};
+    if (body.maxTradeSizeSol !== undefined) updateData.maxTradeSizeSol = body.maxTradeSizeSol;
+    if (body.maxDailyLossSol !== undefined) updateData.maxDailyLossSol = body.maxDailyLossSol;
+    if (body.maxSlippageBps !== undefined) updateData.maxSlippageBps = body.maxSlippageBps;
+    if (body.maxOpenPositions !== undefined) updateData.maxOpenPositions = body.maxOpenPositions;
+    if (body.allowedDexs !== undefined) updateData.allowedDexs = body.allowedDexs;
+    if (body.tokenBlacklist !== undefined) updateData.tokenBlacklist = body.tokenBlacklist;
 
-    return reply.send({ vault });
+    const updatedVault = await prisma.vault.update({
+      where: { id: vault.id },
+      data: updateData,
+    });
+
+    return reply.send({ vault: updatedVault });
   });
 
   // POST /api/v1/vault/pause - Pause vault
   app.post('/pause', async (request, reply) => {
     const user = request.user;
 
-    const vault = vaults.find((v) => v.userId === user.userId);
+    const vault = await prisma.vault.findFirst({
+      where: { userId: user.userId },
+    });
     if (!vault) {
       return reply.status(404).send({ error: 'Vault not found' });
     }
 
-    vault.isPaused = true;
-    vault.updatedAt = new Date();
+    const updatedVault = await prisma.vault.update({
+      where: { id: vault.id },
+      data: { isPaused: true },
+    });
 
     writeAuditLog({
       userId: user.userId,
@@ -257,22 +277,26 @@ export async function vaultRoutes(app: FastifyInstance): Promise<void> {
       ipAddress: request.ip,
     });
 
-    return reply.send({ vault });
+    return reply.send({ vault: updatedVault });
   });
 
   // POST /api/v1/vault/resume - Resume vault
   app.post('/resume', async (request, reply) => {
     const user = request.user;
 
-    const vault = vaults.find((v) => v.userId === user.userId);
+    const vault = await prisma.vault.findFirst({
+      where: { userId: user.userId },
+    });
     if (!vault) {
       return reply.status(404).send({ error: 'Vault not found' });
     }
 
-    vault.isPaused = false;
-    vault.updatedAt = new Date();
+    const updatedVault = await prisma.vault.update({
+      where: { id: vault.id },
+      data: { isPaused: false },
+    });
 
-    return reply.send({ vault });
+    return reply.send({ vault: updatedVault });
   });
 
   // GET /api/v1/vault/transactions - Get vault transactions
@@ -280,25 +304,34 @@ export async function vaultRoutes(app: FastifyInstance): Promise<void> {
     const user = request.user;
     const { page = 1, perPage = 20, type } = request.query;
 
-    const vault = vaults.find((v) => v.userId === user.userId);
+    const vault = await prisma.vault.findFirst({
+      where: { userId: user.userId },
+    });
     if (!vault) {
       return reply.status(404).send({ error: 'Vault not found' });
     }
 
-    let transactions = vaultTransactions.filter((t) => t.vaultId === vault.id);
-
-    if (type) {
-      transactions = transactions.filter((t) => t.type === type);
-    }
-
     const pageNum = Number(page);
     const perPageNum = Number(perPage);
-    const start = (pageNum - 1) * perPageNum;
-    const paginated = transactions.slice(start, start + perPageNum);
+
+    const where: Record<string, unknown> = { vaultId: vault.id };
+    if (type) {
+      where.type = type;
+    }
+
+    const [transactions, total] = await Promise.all([
+      prisma.vaultTransaction.findMany({
+        where,
+        orderBy: { timestamp: 'desc' },
+        skip: (pageNum - 1) * perPageNum,
+        take: perPageNum,
+      }),
+      prisma.vaultTransaction.count({ where }),
+    ]);
 
     return reply.send({
-      transactions: paginated,
-      total: transactions.length,
+      transactions,
+      total,
       page: pageNum,
       perPage: perPageNum,
     });

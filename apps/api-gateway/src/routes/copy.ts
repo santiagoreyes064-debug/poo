@@ -1,5 +1,5 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
-import type { CopyRelation, CopyMode } from '@copy-trading/shared-types';
+import { prisma } from '@copy-trading/database';
 import { writeAuditLog, AuditAction } from '../services/audit.js';
 
 interface CopyParams {
@@ -8,7 +8,7 @@ interface CopyParams {
 
 interface SubscribeBody {
   traderId: string;
-  copyMode: CopyMode;
+  copyMode: 'FIXED' | 'PROPORTIONAL';
   fixedAmountSol?: number;
   proportionPct?: number;
   maxTradeSizeSol: number;
@@ -28,7 +28,7 @@ interface UpdateBody {
   maxDailyLossSol?: number;
   maxOpenPositions?: number;
   tokenBlacklist?: string[];
-  copyMode?: CopyMode;
+  copyMode?: 'FIXED' | 'PROPORTIONAL';
   fixedAmountSol?: number;
   proportionPct?: number;
 }
@@ -52,9 +52,6 @@ const UPDATABLE_FIELDS: (keyof UpdateBody)[] = [
   'proportionPct',
 ];
 
-// In-memory store for development
-const copyRelations: CopyRelation[] = [];
-
 export async function copyRoutes(app: FastifyInstance): Promise<void> {
   // All copy routes require authentication
   app.addHook('preHandler', app.authenticate);
@@ -62,8 +59,11 @@ export async function copyRoutes(app: FastifyInstance): Promise<void> {
   // GET /api/v1/copy - List user's copy relations
   app.get('/', async (request, reply) => {
     const user = request.user;
-    const userCopies = copyRelations.filter((c) => c.userId === user.userId);
-    return reply.send({ copies: userCopies });
+    const copies = await prisma.copyRelation.findMany({
+      where: { userId: user.userId },
+      include: { trader: true },
+    });
+    return reply.send({ copies });
   });
 
   // POST /api/v1/copy/subscribe - Create a new copy relation
@@ -84,31 +84,30 @@ export async function copyRoutes(app: FastifyInstance): Promise<void> {
     }
 
     // Check for duplicate subscription
-    const existing = copyRelations.find(
-      (c) => c.userId === user.userId && c.traderId === body.traderId
-    );
+    const existing = await prisma.copyRelation.findFirst({
+      where: { userId: user.userId, traderId: body.traderId },
+    });
     if (existing) {
       return reply.status(409).send({ error: 'Already subscribed to this trader' });
     }
 
-    const newCopy: CopyRelation = {
-      id: `copy_${Date.now()}`,
-      userId: user.userId,
-      traderId: body.traderId,
-      enabled: true,
-      copyMode: body.copyMode,
-      fixedAmountSol: body.fixedAmountSol,
-      proportionPct: body.proportionPct,
-      maxTradeSizeSol: body.maxTradeSizeSol,
-      maxSlippageBps: body.maxSlippageBps,
-      stopLossPct: body.stopLossPct,
-      takeProfitPct: body.takeProfitPct,
-      maxDailyLossSol: body.maxDailyLossSol,
-      maxOpenPositions: body.maxOpenPositions,
-      tokenBlacklist: body.tokenBlacklist || [],
-    };
-
-    copyRelations.push(newCopy);
+    const newCopy = await prisma.copyRelation.create({
+      data: {
+        userId: user.userId,
+        traderId: body.traderId,
+        enabled: true,
+        copyMode: body.copyMode,
+        fixedAmountSol: body.fixedAmountSol,
+        proportionPct: body.proportionPct,
+        maxTradeSizeSol: body.maxTradeSizeSol,
+        maxSlippageBps: body.maxSlippageBps,
+        stopLossPct: body.stopLossPct,
+        takeProfitPct: body.takeProfitPct,
+        maxDailyLossSol: body.maxDailyLossSol,
+        maxOpenPositions: body.maxOpenPositions,
+        tokenBlacklist: body.tokenBlacklist ?? [],
+      },
+    });
 
     writeAuditLog({
       userId: user.userId,
@@ -126,26 +125,34 @@ export async function copyRoutes(app: FastifyInstance): Promise<void> {
     const { id } = request.params;
     const body = request.body;
 
-    const copy = copyRelations.find((c) => c.id === id && c.userId === user.userId);
+    const copy = await prisma.copyRelation.findFirst({
+      where: { id, userId: user.userId },
+    });
     if (!copy) {
       return reply.status(404).send({ error: 'Copy relation not found' });
     }
 
     // Only update whitelisted fields
+    const updateData: Record<string, unknown> = {};
     for (const field of UPDATABLE_FIELDS) {
       if (body[field] !== undefined) {
-        (copy as unknown as Record<string, unknown>)[field] = body[field];
+        updateData[field] = body[field];
       }
     }
+
+    const updatedCopy = await prisma.copyRelation.update({
+      where: { id },
+      data: updateData,
+    });
 
     writeAuditLog({
       userId: user.userId,
       action: AuditAction.COPY_SETTINGS_UPDATED,
-      metadata: { copyId: id, updatedFields: Object.keys(body) },
+      metadata: { copyId: id, updatedFields: Object.keys(updateData) },
       ipAddress: request.ip,
     });
 
-    return reply.send({ copy });
+    return reply.send({ copy: updatedCopy });
   });
 
   // DELETE /api/v1/copy/:id - Remove copy relation
@@ -153,12 +160,14 @@ export async function copyRoutes(app: FastifyInstance): Promise<void> {
     const user = request.user;
     const { id } = request.params;
 
-    const index = copyRelations.findIndex((c) => c.id === id && c.userId === user.userId);
-    if (index === -1) {
+    const copy = await prisma.copyRelation.findFirst({
+      where: { id, userId: user.userId },
+    });
+    if (!copy) {
       return reply.status(404).send({ error: 'Copy relation not found' });
     }
 
-    copyRelations.splice(index, 1);
+    await prisma.copyRelation.delete({ where: { id } });
 
     writeAuditLog({
       userId: user.userId,
@@ -175,16 +184,23 @@ export async function copyRoutes(app: FastifyInstance): Promise<void> {
     const user = request.user;
     const { id } = request.params;
 
-    const copy = copyRelations.find((c) => c.id === id && c.userId === user.userId);
+    const copy = await prisma.copyRelation.findFirst({
+      where: { id, userId: user.userId },
+    });
     if (!copy) {
       return reply.status(404).send({ error: 'Copy relation not found' });
     }
 
-    copy.enabled = false;
-    copy.pausedAt = new Date();
-    copy.pauseReason = 'User paused';
+    const updatedCopy = await prisma.copyRelation.update({
+      where: { id },
+      data: {
+        enabled: false,
+        pausedAt: new Date(),
+        pauseReason: 'User paused',
+      },
+    });
 
-    return reply.send({ copy });
+    return reply.send({ copy: updatedCopy });
   });
 
   // POST /api/v1/copy/:id/resume - Resume copy relation
@@ -192,16 +208,23 @@ export async function copyRoutes(app: FastifyInstance): Promise<void> {
     const user = request.user;
     const { id } = request.params;
 
-    const copy = copyRelations.find((c) => c.id === id && c.userId === user.userId);
+    const copy = await prisma.copyRelation.findFirst({
+      where: { id, userId: user.userId },
+    });
     if (!copy) {
       return reply.status(404).send({ error: 'Copy relation not found' });
     }
 
-    copy.enabled = true;
-    copy.pausedAt = undefined;
-    copy.pauseReason = undefined;
+    const updatedCopy = await prisma.copyRelation.update({
+      where: { id },
+      data: {
+        enabled: true,
+        pausedAt: null,
+        pauseReason: null,
+      },
+    });
 
-    return reply.send({ copy });
+    return reply.send({ copy: updatedCopy });
   });
 
   // GET /api/v1/copy/:id/trades - Get trades for a copy relation
@@ -210,17 +233,40 @@ export async function copyRoutes(app: FastifyInstance): Promise<void> {
     const { id } = request.params;
     const { page = 1, perPage = 20 } = request.query;
 
-    const copy = copyRelations.find((c) => c.id === id && c.userId === user.userId);
+    const copy = await prisma.copyRelation.findFirst({
+      where: { id, userId: user.userId },
+    });
     if (!copy) {
       return reply.status(404).send({ error: 'Copy relation not found' });
     }
 
-    // In production, query CopyTrade table filtered by this relation
+    const pageNum = Number(page);
+    const perPageNum = Number(perPage);
+
+    // Query CopyTrades that belong to this user for this trader's original trades
+    const [trades, total] = await Promise.all([
+      prisma.copyTrade.findMany({
+        where: {
+          userId: user.userId,
+          originalTrade: { traderId: copy.traderId },
+        },
+        orderBy: { settledAt: 'desc' },
+        skip: (pageNum - 1) * perPageNum,
+        take: perPageNum,
+      }),
+      prisma.copyTrade.count({
+        where: {
+          userId: user.userId,
+          originalTrade: { traderId: copy.traderId },
+        },
+      }),
+    ]);
+
     return reply.send({
-      trades: [],
-      total: 0,
-      page: Number(page),
-      perPage: Number(perPage),
+      trades,
+      total,
+      page: pageNum,
+      perPage: perPageNum,
     });
   });
 }

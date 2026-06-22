@@ -76,6 +76,18 @@ describe('Auth Plugin', () => {
       expect(result).toBe(true);
     });
 
+    it('should verify a valid base64 signature', () => {
+      const keypair = nacl.sign.keyPair();
+      const publicKeyBase58 = bs58.encode(keypair.publicKey);
+      const message = 'test-nonce-123';
+      const messageBytes = new TextEncoder().encode(message);
+      const signatureBytes = nacl.sign.detached(messageBytes, keypair.secretKey);
+      const signatureBase64 = Buffer.from(signatureBytes).toString('base64');
+
+      const result = verifyEd25519Signature(publicKeyBase58, signatureBase64, message);
+      expect(result).toBe(true);
+    });
+
     it('should reject an invalid signature', () => {
       const keypair = nacl.sign.keyPair();
       const publicKeyBase58 = bs58.encode(keypair.publicKey);

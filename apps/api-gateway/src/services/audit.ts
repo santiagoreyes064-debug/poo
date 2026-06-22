@@ -1,4 +1,4 @@
-import type { AuditLog } from '@copy-trading/shared-types';
+import { prisma } from '@copy-trading/database';
 
 export enum AuditAction {
   WALLET_CONNECTED = 'wallet.connected',
@@ -18,22 +18,34 @@ export interface AuditEntry {
   ipAddress?: string;
 }
 
-// In-memory audit log store (replace with database persistence in production)
-const auditLogs: AuditEntry[] = [];
-
+/**
+ * Write an audit log entry to the database.
+ * This is fire-and-forget to avoid slowing down request handling.
+ */
 export function writeAuditLog(entry: AuditEntry): void {
-  auditLogs.push({
-    ...entry,
+  // Fire and forget - don't await to avoid blocking the request
+  prisma.auditLog
+    .create({
+      data: {
+        userId: entry.userId,
+        action: entry.action,
+        metadata: entry.metadata as object,
+        ipAddress: entry.ipAddress || null,
+      },
+    })
+    .catch((err) => {
+      console.error('[audit] Failed to write audit log:', err);
+    });
+}
+
+/**
+ * Retrieve audit logs, optionally filtered by userId.
+ */
+export async function getAuditLogs(userId?: string) {
+  const where = userId ? { userId } : {};
+  return prisma.auditLog.findMany({
+    where,
+    orderBy: { createdAt: 'desc' },
+    take: 100,
   });
-}
-
-export function getAuditLogs(userId?: string): AuditEntry[] {
-  if (userId) {
-    return auditLogs.filter((log) => log.userId === userId);
-  }
-  return [...auditLogs];
-}
-
-export function clearAuditLogs(): void {
-  auditLogs.length = 0;
 }

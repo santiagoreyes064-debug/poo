@@ -22,6 +22,7 @@ const JITO_BLOCK_ENGINE_URL = process.env.JITO_BLOCK_ENGINE_URL ?? 'https://main
 const HELIUS_RPC_URL = process.env.HELIUS_RPC_URL ?? 'https://mainnet.helius-rpc.com/?api-key=YOUR_KEY';
 const PAPER_TRADING = process.env.PAPER_TRADING === 'true';
 const ORDER_DEADLINE_MS = 3000; // Discard orders older than 3 seconds
+const EXECUTOR_PRIVATE_KEY = process.env.EXECUTOR_PRIVATE_KEY ?? '';
 
 // ==================== State ====================
 
@@ -218,7 +219,10 @@ export async function processOrder(
       return;
     }
 
-    // Real execution: Jupiter quote -> swap -> submit
+    // Real execution: The executor signs the vault's execute_trade instruction.
+    // This service IS the executor authority - it loads the keypair from EXECUTOR_PRIVATE_KEY
+    // and uses it to sign transactions through the vault program. No user wallet
+    // signature is needed for trades; that is the whole point of the vault pattern.
     const amountLamports = Math.floor(amountSol * 1e9).toString();
     const quote = await getJupiterQuote(tokenIn, tokenOut, amountLamports, maxSlippageBps);
 
@@ -232,6 +236,12 @@ export async function processOrder(
       throw new Error('No active vault found for user');
     }
 
+    if (!EXECUTOR_PRIVATE_KEY) {
+      throw new Error('EXECUTOR_PRIVATE_KEY not configured');
+    }
+
+    // Build the swap transaction with the vault as the payer
+    // The executor signs with its authority key to authorize via the vault program
     const swap = await getJupiterSwap(quote, vault.publicKey);
     const serializedTx = swap.swapTransaction;
 

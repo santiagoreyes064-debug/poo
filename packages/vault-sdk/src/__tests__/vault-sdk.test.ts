@@ -116,7 +116,8 @@ describe("Vault SDK", () => {
       expect(instructionNames).toContain("pauseVault");
       expect(instructionNames).toContain("resumeVault");
       expect(instructionNames).toContain("executeTrade");
-      expect(instructionNames).toHaveLength(8);
+      expect(instructionNames).toContain("closePosition");
+      expect(instructionNames).toHaveLength(9);
     });
 
     it("should have all expected error codes", () => {
@@ -132,7 +133,9 @@ describe("Vault SDK", () => {
       expect(errorNames).toContain("TokenBlacklisted");
       expect(errorNames).toContain("InsufficientVaultBalance");
       expect(errorNames).toContain("InvalidAuthority");
-      expect(errorNames).toHaveLength(10);
+      expect(errorNames).toContain("InvalidTradeDestination");
+      expect(errorNames).toContain("NoOpenPositions");
+      expect(errorNames).toHaveLength(12);
     });
 
     it("should have all expected account definitions", () => {
@@ -181,7 +184,7 @@ describe("Vault SDK", () => {
     it("should have correct error codes starting at 6000", () => {
       const errors = VaultIDL.errors!;
       expect(errors[0].code).toBe(6000);
-      expect(errors[errors.length - 1].code).toBe(6009);
+      expect(errors[errors.length - 1].code).toBe(6011);
     });
 
     it("initializeVault instruction should have executor argument", () => {

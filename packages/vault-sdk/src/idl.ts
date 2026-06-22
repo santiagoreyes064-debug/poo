@@ -90,6 +90,16 @@ export const VaultIDL: Idl = {
         { name: "dexProgram", type: "publicKey" },
       ],
     },
+    {
+      name: "closePosition",
+      accounts: [
+        { name: "vault", isMut: true, isSigner: false },
+        { name: "executor", isMut: false, isSigner: true },
+        { name: "returnSource", isMut: true, isSigner: false },
+        { name: "systemProgram", isMut: false, isSigner: false },
+      ],
+      args: [{ name: "returnedAmount", type: "u64" }],
+    },
   ],
   accounts: [
     {
@@ -156,5 +166,11 @@ export const VaultIDL: Idl = {
       msg: "Insufficient vault balance",
     },
     { code: 6009, name: "InvalidAuthority", msg: "Invalid authority" },
+    {
+      code: 6010,
+      name: "InvalidTradeDestination",
+      msg: "Trade destination not owned by the specified DEX program",
+    },
+    { code: 6011, name: "NoOpenPositions", msg: "No open positions to close" },
   ],
 };

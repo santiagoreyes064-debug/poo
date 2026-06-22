@@ -16,7 +16,7 @@ interface VaultState {
   fetchVault: (token: string) => Promise<void>;
   createVault: (token: string, data: CreateVaultRequest) => Promise<void>;
   deposit: (token: string, amount: number, signature: string) => Promise<void>;
-  withdraw: (token: string, amount: number) => Promise<void>;
+  withdraw: (token: string, amount: number, signature: string) => Promise<void>;
   updateRiskParams: (token: string, data: UpdateRiskParamsRequest) => Promise<void>;
   pause: (token: string) => Promise<void>;
   resume: (token: string) => Promise<void>;
@@ -59,10 +59,10 @@ export const useVaultStore = create<VaultState>((set) => ({
     }
   },
 
-  withdraw: async (token, amount) => {
+  withdraw: async (token, amount, signature) => {
     set({ isLoading: true, error: null });
     try {
-      const vault = await vaultApi.withdraw(token, { amount });
+      const vault = await vaultApi.withdraw(token, { amount, signature });
       set({ vault, isLoading: false });
     } catch (err) {
       set({ error: err instanceof Error ? err.message : 'Withdrawal failed', isLoading: false });

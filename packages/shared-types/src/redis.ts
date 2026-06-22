@@ -96,13 +96,21 @@ export async function acknowledgeMessage(
 }
 
 /**
+ * Default maximum stream length for approximate trimming.
+ * Prevents unbounded Redis memory growth.
+ */
+const DEFAULT_MAXLEN = 10000;
+
+/**
  * Publish a message to a Redis stream.
+ * Uses MAXLEN ~ 10000 by default to prevent unbounded stream growth.
+ * Pass maxLen=0 to disable trimming (not recommended for production).
  */
 export async function publishToStream(
   redis: Redis,
   stream: string,
   data: Record<string, string>,
-  maxLen?: number,
+  maxLen: number = DEFAULT_MAXLEN,
 ): Promise<string> {
   const fields: string[] = [];
   for (const [key, value] of Object.entries(data)) {
@@ -110,7 +118,7 @@ export async function publishToStream(
   }
 
   let id: string | null;
-  if (maxLen) {
+  if (maxLen > 0) {
     id = await redis.xadd(stream, 'MAXLEN', '~', String(maxLen), '*', ...fields);
   } else {
     id = await redis.xadd(stream, '*', ...fields);

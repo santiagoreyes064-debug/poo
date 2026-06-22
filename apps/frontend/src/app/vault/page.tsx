@@ -121,7 +121,7 @@ function VaultManagement() {
 
   const handleWithdraw = async () => {
     if (!token || !withdrawAmount) return;
-    await withdraw(token, parseFloat(withdrawAmount));
+    await withdraw(token, parseFloat(withdrawAmount), 'pending-signature');
     setWithdrawAmount('');
   };
 

@@ -36,7 +36,9 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
 
     const nonce = generateNonce();
     const redis = getRedisClient();
-    await storeNonce(redis, walletAddress, nonce);
+    // Store the full message that the client will sign, so verification matches
+    const message = `Sign this message to authenticate with SCT.\nNonce: ${nonce}`;
+    await storeNonce(redis, walletAddress, message);
 
     return reply.send({ nonce, expiresIn: 300 });
   });
@@ -57,14 +59,14 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
     }
 
     const redis = getRedisClient();
-    const nonce = await getNonce(redis, walletAddress);
+    const storedMessage = await getNonce(redis, walletAddress);
 
-    if (!nonce) {
+    if (!storedMessage) {
       return reply.status(401).send({ error: 'Nonce expired or not found. Request a new nonce.' });
     }
 
-    // Verify Ed25519 signature
-    const isValid = verifyEd25519Signature(walletAddress, signature, nonce);
+    // Verify Ed25519 signature against the full stored message
+    const isValid = verifyEd25519Signature(walletAddress, signature, storedMessage);
 
     if (!isValid) {
       return reply.status(401).send({ error: 'Invalid signature' });

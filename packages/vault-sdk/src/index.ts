@@ -275,6 +275,37 @@ export async function buildExecuteTradeInstruction(
   return ix;
 }
 
+/**
+ * Builds the close_position instruction without sending it.
+ * Called by the execution service after a trade settles to decrement
+ * current_open_positions and return SOL to available_sol.
+ * @param params - Close position parameters
+ * @returns TransactionInstruction ready to be included in a transaction
+ */
+export async function buildClosePositionInstruction(
+  provider: AnchorProvider,
+  params: {
+    vaultAuthority: PublicKey;
+    returnedAmount: BN;
+    returnSource: PublicKey;
+  }
+): Promise<TransactionInstruction> {
+  const program = getProgram(provider);
+  const [vaultPDA] = getVaultPDA(params.vaultAuthority);
+
+  const ix = await program.methods
+    .closePosition(params.returnedAmount)
+    .accounts({
+      vault: vaultPDA,
+      executor: provider.wallet.publicKey,
+      returnSource: params.returnSource,
+      systemProgram: SystemProgram.programId,
+    })
+    .instruction();
+
+  return ix;
+}
+
 // Re-export useful types
 export { BN } from "@coral-xyz/anchor";
 export type { AnchorProvider } from "@coral-xyz/anchor";

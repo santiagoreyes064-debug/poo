@@ -56,6 +56,206 @@ vi.mock('../ws/handler.js', () => ({
   },
 }));
 
+// In-memory stores for Prisma mock
+const vaultsDb: Record<string, any>[] = [];
+const vaultTransactionsDb: Record<string, any>[] = [];
+const tradersDb: Record<string, any>[] = [];
+const copyRelationsDb: Record<string, any>[] = [];
+const copyTradesDb: Record<string, any>[] = [];
+const notificationPrefsDb: Record<string, any>[] = [];
+const auditLogsDb: Record<string, any>[] = [];
+
+// Mock Prisma
+vi.mock('@copy-trading/database', () => ({
+  prisma: {
+    vault: {
+      findFirst: async ({ where }: any) => {
+        return vaultsDb.find((v) => {
+          if (where.userId && v.userId !== where.userId) return false;
+          if (where.isPaused !== undefined && v.isPaused !== where.isPaused) return false;
+          return true;
+        }) || null;
+      },
+      create: async ({ data }: any) => {
+        const vault = { id: `vault_${Date.now()}_${Math.random().toString(36).slice(2)}`, ...data, createdAt: new Date(), updatedAt: new Date() };
+        vaultsDb.push(vault);
+        return vault;
+      },
+      update: async ({ where, data }: any) => {
+        const idx = vaultsDb.findIndex((v) => v.id === where.id);
+        if (idx >= 0) {
+          Object.assign(vaultsDb[idx], data, { updatedAt: new Date() });
+          return vaultsDb[idx];
+        }
+        return null;
+      },
+    },
+    vaultTransaction: {
+      create: async ({ data }: any) => {
+        const tx = { id: `vtx_${Date.now()}_${Math.random().toString(36).slice(2)}`, ...data };
+        vaultTransactionsDb.push(tx);
+        return tx;
+      },
+      findMany: async ({ where, orderBy, skip, take }: any) => {
+        let results = vaultTransactionsDb.filter((t) => {
+          if (where.vaultId && t.vaultId !== where.vaultId) return false;
+          if (where.type && t.type !== where.type) return false;
+          return true;
+        });
+        return results.slice(skip || 0, (skip || 0) + (take || 20));
+      },
+      count: async ({ where }: any) => {
+        return vaultTransactionsDb.filter((t) => {
+          if (where.vaultId && t.vaultId !== where.vaultId) return false;
+          if (where.type && t.type !== where.type) return false;
+          return true;
+        }).length;
+      },
+    },
+    trader: {
+      findMany: async ({ where, orderBy, skip, take }: any) => {
+        let results = [...tradersDb];
+        if (where?.totalTrades?.gte !== undefined) {
+          results = results.filter((t) => t.totalTrades >= where.totalTrades.gte);
+        }
+        if (where?.OR) {
+          results = results.filter((t) => {
+            return where.OR.some((cond: any) => {
+              if (cond.walletAddress?.contains) {
+                return t.walletAddress.toLowerCase().includes(cond.walletAddress.contains.toLowerCase());
+              }
+              if (cond.label?.contains && t.label) {
+                return t.label.toLowerCase().includes(cond.label.contains.toLowerCase());
+              }
+              return false;
+            });
+          });
+        }
+        return results.slice(skip || 0, (skip || 0) + (take || 20));
+      },
+      findUnique: async ({ where }: any) => {
+        if (where.id) return tradersDb.find((t) => t.id === where.id) || null;
+        if (where.walletAddress) return tradersDb.find((t) => t.walletAddress === where.walletAddress) || null;
+        return null;
+      },
+      count: async ({ where }: any) => {
+        let results = [...tradersDb];
+        if (where?.totalTrades?.gte !== undefined) {
+          results = results.filter((t) => t.totalTrades >= where.totalTrades.gte);
+        }
+        if (where?.OR) {
+          results = results.filter((t) => {
+            return where.OR.some((cond: any) => {
+              if (cond.walletAddress?.contains) {
+                return t.walletAddress.toLowerCase().includes(cond.walletAddress.contains.toLowerCase());
+              }
+              if (cond.label?.contains && t.label) {
+                return t.label.toLowerCase().includes(cond.label.contains.toLowerCase());
+              }
+              return false;
+            });
+          });
+        }
+        return results.length;
+      },
+      create: async ({ data }: any) => {
+        const trader = {
+          id: `trader_${Date.now()}_${Math.random().toString(36).slice(2)}`,
+          ...data,
+          roi7d: 0,
+          roi30d: 0,
+          winRate: 0,
+          sharpeRatio: 0,
+          maxDrawdown: 0,
+          avgHoldTime: 0,
+          totalTrades: 0,
+          lastTradeAt: null,
+        };
+        tradersDb.push(trader);
+        return trader;
+      },
+    },
+    copyRelation: {
+      findMany: async ({ where, include }: any) => {
+        let results = copyRelationsDb.filter((c) => {
+          if (where.userId && c.userId !== where.userId) return false;
+          if (where.enabled !== undefined && c.enabled !== where.enabled) return false;
+          return true;
+        });
+        return results;
+      },
+      findFirst: async ({ where }: any) => {
+        return copyRelationsDb.find((c) => {
+          if (where.id && c.id !== where.id) return false;
+          if (where.userId && c.userId !== where.userId) return false;
+          if (where.traderId && c.traderId !== where.traderId) return false;
+          return true;
+        }) || null;
+      },
+      create: async ({ data }: any) => {
+        const copy = { id: `copy_${Date.now()}_${Math.random().toString(36).slice(2)}`, ...data };
+        copyRelationsDb.push(copy);
+        return copy;
+      },
+      update: async ({ where, data }: any) => {
+        const idx = copyRelationsDb.findIndex((c) => c.id === where.id);
+        if (idx >= 0) {
+          Object.assign(copyRelationsDb[idx], data);
+          return copyRelationsDb[idx];
+        }
+        return null;
+      },
+      delete: async ({ where }: any) => {
+        const idx = copyRelationsDb.findIndex((c) => c.id === where.id);
+        if (idx >= 0) {
+          copyRelationsDb.splice(idx, 1);
+        }
+      },
+      count: async ({ where }: any) => {
+        return copyRelationsDb.filter((c) => {
+          if (where.userId && c.userId !== where.userId) return false;
+          if (where.enabled !== undefined && c.enabled !== where.enabled) return false;
+          return true;
+        }).length;
+      },
+    },
+    copyTrade: {
+      findMany: async ({ where, orderBy, skip, take, include }: any) => {
+        return [];
+      },
+      count: async ({ where }: any) => {
+        return 0;
+      },
+    },
+    notificationPreference: {
+      deleteMany: async ({ where }: any) => {},
+      createMany: async ({ data }: any) => {
+        for (const item of data) {
+          notificationPrefsDb.push({ id: `np_${Date.now()}_${Math.random().toString(36).slice(2)}`, ...item });
+        }
+        return { count: data.length };
+      },
+      findMany: async ({ where }: any) => {
+        return notificationPrefsDb.filter((p) => p.userId === where.userId);
+      },
+    },
+    auditLog: {
+      create: async ({ data }: any) => {
+        const log = { id: `al_${Date.now()}`, ...data, createdAt: new Date() };
+        auditLogsDb.push(log);
+        return log;
+      },
+      findMany: async ({ where, orderBy, take }: any) => {
+        let results = [...auditLogsDb];
+        if (where?.userId) {
+          results = results.filter((l) => l.userId === where.userId);
+        }
+        return results.slice(0, take || 100);
+      },
+    },
+  },
+}));
+
 // Dynamic import after mocks are set up
 const { buildApp } = await import('../index.js');
 

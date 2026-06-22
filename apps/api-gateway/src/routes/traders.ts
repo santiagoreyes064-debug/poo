@@ -1,5 +1,5 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
-import type { Trader, TraderStatus } from '@copy-trading/shared-types';
+import { prisma } from '@copy-trading/database';
 import { getRedisClient } from '../services/redis.js';
 
 interface LeaderboardQuery {
@@ -25,9 +25,6 @@ interface AddTraderBody {
   label?: string;
 }
 
-// In-memory store for development (replace with database in production)
-const traders: Trader[] = [];
-
 export async function traderRoutes(app: FastifyInstance): Promise<void> {
   // GET /api/v1/traders/leaderboard
   app.get<{ Querystring: LeaderboardQuery }>('/leaderboard', {
@@ -50,26 +47,31 @@ export async function traderRoutes(app: FastifyInstance): Promise<void> {
       return reply.send(JSON.parse(cached));
     }
 
-    // Filter by minimum trades
-    let filtered = traders.filter((t) => t.totalTrades >= Number(minTrades));
-
-    // Sort
-    const sortField = sort as keyof Trader;
-    filtered.sort((a, b) => {
-      const aVal = a[sortField] as number;
-      const bVal = b[sortField] as number;
-      return order === 'desc' ? bVal - aVal : aVal - bVal;
-    });
-
-    // Paginate
     const pageNum = Number(page);
     const perPageNum = Number(perPage);
-    const start = (pageNum - 1) * perPageNum;
-    const paginated = filtered.slice(start, start + perPageNum);
+
+    // Build orderBy dynamically based on sort field
+    const allowedSortFields = ['roi7d', 'roi30d', 'winRate', 'sharpeRatio', 'maxDrawdown', 'totalTrades'];
+    const sortField = allowedSortFields.includes(sort) ? sort : 'roi7d';
+    const orderBy: Record<string, string> = { [sortField]: order === 'asc' ? 'asc' : 'desc' };
+
+    const where = {
+      totalTrades: { gte: Number(minTrades) },
+    };
+
+    const [traders, total] = await Promise.all([
+      prisma.trader.findMany({
+        where,
+        orderBy,
+        skip: (pageNum - 1) * perPageNum,
+        take: perPageNum,
+      }),
+      prisma.trader.count({ where }),
+    ]);
 
     const result = {
-      traders: paginated,
-      total: filtered.length,
+      traders,
+      total,
       page: pageNum,
       perPage: perPageNum,
     };
@@ -86,21 +88,28 @@ export async function traderRoutes(app: FastifyInstance): Promise<void> {
   }, async (request, reply) => {
     const { q = '', page = 1, perPage = 20 } = request.query;
 
-    const query = q.toLowerCase();
-    const filtered = traders.filter(
-      (t) =>
-        t.walletAddress.toLowerCase().includes(query) ||
-        (t.label && t.label.toLowerCase().includes(query))
-    );
-
     const pageNum = Number(page);
     const perPageNum = Number(perPage);
-    const start = (pageNum - 1) * perPageNum;
-    const paginated = filtered.slice(start, start + perPageNum);
+
+    const where = {
+      OR: [
+        { walletAddress: { contains: q, mode: 'insensitive' as const } },
+        { label: { contains: q, mode: 'insensitive' as const } },
+      ],
+    };
+
+    const [traders, total] = await Promise.all([
+      prisma.trader.findMany({
+        where,
+        skip: (pageNum - 1) * perPageNum,
+        take: perPageNum,
+      }),
+      prisma.trader.count({ where }),
+    ]);
 
     return reply.send({
-      traders: paginated,
-      total: filtered.length,
+      traders,
+      total,
       page: pageNum,
       perPage: perPageNum,
     });
@@ -111,7 +120,9 @@ export async function traderRoutes(app: FastifyInstance): Promise<void> {
     preHandler: [app.authenticate],
   }, async (request, reply) => {
     const { id } = request.params;
-    const trader = traders.find((t) => t.id === id);
+    const trader = await prisma.trader.findUnique({
+      where: { id },
+    });
 
     if (!trader) {
       return reply.status(404).send({ error: 'Trader not found' });
@@ -131,27 +142,20 @@ export async function traderRoutes(app: FastifyInstance): Promise<void> {
     }
 
     // Check if trader already exists
-    const existing = traders.find((t) => t.walletAddress === walletAddress);
+    const existing = await prisma.trader.findUnique({
+      where: { walletAddress },
+    });
     if (existing) {
       return reply.status(409).send({ error: 'Trader already tracked', trader: existing });
     }
 
-    const newTrader: Trader = {
-      id: `trader_${Date.now()}`,
-      walletAddress,
-      label: label || undefined,
-      status: 'ACTIVE' as TraderStatus,
-      roi7d: 0,
-      roi30d: 0,
-      winRate: 0,
-      sharpeRatio: 0,
-      maxDrawdown: 0,
-      avgHoldTime: 0,
-      totalTrades: 0,
-      lastTradeAt: undefined,
-    };
-
-    traders.push(newTrader);
+    const newTrader = await prisma.trader.create({
+      data: {
+        walletAddress,
+        label: label || null,
+        status: 'ACTIVE',
+      },
+    });
 
     return reply.status(201).send({ trader: newTrader });
   });

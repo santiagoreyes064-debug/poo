@@ -122,6 +122,7 @@ pub mod vault {
 
     /// Executes a trade from the vault. Called by the authorized executor only.
     /// Validates all risk parameters on-chain before transferring funds.
+    /// The trade_destination must be owned by one of the allowed DEX programs.
     pub fn execute_trade(
         ctx: Context<ExecuteTrade>,
         trade_amount: u64,
@@ -155,6 +156,9 @@ pub mod vault {
         }
 
         // Check daily loss limit
+        // NOTE: daily_loss_counter counts gross outflow (total amount sent to DEX),
+        // not realized losses. This is acceptable for v1 as it provides a conservative
+        // upper bound. A future version could track net P&L after positions close.
         require!(
             vault.daily_loss_counter.checked_add(trade_amount).unwrap() <= vault.max_daily_loss,
             VaultError::DailyLossLimitReached
@@ -178,6 +182,13 @@ pub mod vault {
             VaultError::DexNotAllowed
         );
 
+        // Constrain trade_destination: must be owned by the specified DEX program.
+        // This prevents the executor from draining funds to an arbitrary address.
+        require!(
+            *ctx.accounts.trade_destination.owner == dex_program,
+            VaultError::InvalidTradeDestination
+        );
+
         // Check vault has sufficient balance
         require!(
             vault.available_sol >= trade_amount,
@@ -189,12 +200,52 @@ pub mod vault {
         vault.daily_loss_counter = vault.daily_loss_counter.checked_add(trade_amount).unwrap();
         vault.current_open_positions = vault.current_open_positions.checked_add(1).unwrap();
 
-        // Transfer funds from vault PDA to the destination (e.g., DEX)
+        // Transfer funds from vault PDA to the destination (DEX pool)
         let vault_account_info = vault.to_account_info();
         let destination_account_info = ctx.accounts.trade_destination.to_account_info();
 
         **vault_account_info.try_borrow_mut_lamports()? -= trade_amount;
         **destination_account_info.try_borrow_mut_lamports()? += trade_amount;
+
+        Ok(())
+    }
+
+    /// Closes a position and returns SOL to the vault's available balance.
+    /// Called by the authorized executor after a trade is settled.
+    pub fn close_position(
+        ctx: Context<ClosePosition>,
+        returned_amount: u64,
+    ) -> Result<()> {
+        let vault = &mut ctx.accounts.vault;
+
+        // Check executor is authorized
+        require!(
+            ctx.accounts.executor.key() == vault.executor,
+            VaultError::UnauthorizedExecutor
+        );
+
+        // Check vault is not paused
+        require!(!vault.is_paused, VaultError::VaultPaused);
+
+        // Ensure there is at least one open position to close
+        require!(
+            vault.current_open_positions > 0,
+            VaultError::NoOpenPositions
+        );
+
+        // Decrement open positions
+        vault.current_open_positions = vault.current_open_positions.checked_sub(1).unwrap();
+
+        // Return SOL to vault (the returned_amount comes from the DEX after the swap settles)
+        // Transfer from the source account (DEX pool / intermediary) back to vault
+        let source_account_info = ctx.accounts.return_source.to_account_info();
+        let vault_account_info = vault.to_account_info();
+
+        **source_account_info.try_borrow_mut_lamports()? -= returned_amount;
+        **vault_account_info.try_borrow_mut_lamports()? += returned_amount;
+
+        // Update available balance
+        vault.available_sol = vault.available_sol.checked_add(returned_amount).unwrap();
 
         Ok(())
     }
@@ -362,9 +413,25 @@ pub struct ExecuteTrade<'info> {
     )]
     pub vault_config: Account<'info, VaultConfig>,
     pub executor: Signer<'info>,
-    /// CHECK: This is the destination account for the trade funds (e.g., DEX pool)
+    /// CHECK: This is the destination account for the trade funds.
+    /// Constrained to be owned by the specified DEX program in the instruction logic.
     #[account(mut)]
     pub trade_destination: UncheckedAccount<'info>,
+    pub system_program: Program<'info, System>,
+}
+
+#[derive(Accounts)]
+pub struct ClosePosition<'info> {
+    #[account(
+        mut,
+        seeds = [b"vault", vault.authority.as_ref()],
+        bump = vault.bump
+    )]
+    pub vault: Account<'info, VaultAccount>,
+    pub executor: Signer<'info>,
+    /// CHECK: This is the source account returning SOL from a closed position (e.g., DEX pool).
+    #[account(mut)]
+    pub return_source: UncheckedAccount<'info>,
     pub system_program: Program<'info, System>,
 }
 
@@ -394,4 +461,8 @@ pub enum VaultError {
     InsufficientVaultBalance,
     #[msg("Invalid authority")]
     InvalidAuthority,
+    #[msg("Trade destination not owned by the specified DEX program")]
+    InvalidTradeDestination,
+    #[msg("No open positions to close")]
+    NoOpenPositions,
 }

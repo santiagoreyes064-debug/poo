@@ -34,16 +34,19 @@ async function apiRequest<T>(endpoint: string, options: ApiOptions = {}): Promis
 // Auth endpoints
 export const authApi = {
   getNonce: (walletAddress: string) =>
-    apiRequest<{ nonce: string }>(`/api/auth/nonce?wallet=${walletAddress}`),
+    apiRequest<{ nonce: string }>('/api/v1/auth/nonce', {
+      method: 'POST',
+      body: { walletAddress },
+    }),
 
   verify: (walletAddress: string, signature: string, nonce: string) =>
     apiRequest<{ token: string; user: { id: string; walletAddress: string } }>(
-      '/api/auth/verify',
+      '/api/v1/auth/verify',
       { method: 'POST', body: { walletAddress, signature, nonce } },
     ),
 
   me: (token: string) =>
-    apiRequest<{ id: string; walletAddress: string }>('/api/auth/me', { token }),
+    apiRequest<{ id: string; walletAddress: string }>('/api/v1/auth/me', { token }),
 };
 
 // Trader endpoints
@@ -55,23 +58,23 @@ export const tradersApi = {
     if (params?.limit) query.set('limit', String(params.limit));
     const qs = query.toString();
     return apiRequest<{ traders: TraderResponse[] }>(
-      `/api/traders${qs ? `?${qs}` : ''}`,
+      `/api/v1/traders${qs ? `?${qs}` : ''}`,
       { token },
     );
   },
 
   getById: (token: string, traderId: string) =>
-    apiRequest<TraderResponse>(`/api/traders/${traderId}`, { token }),
+    apiRequest<TraderResponse>(`/api/v1/traders/${traderId}`, { token }),
 
   getTrades: (token: string, traderId: string, limit = 50) =>
     apiRequest<{ trades: TradeResponse[] }>(
-      `/api/traders/${traderId}/trades?limit=${limit}`,
+      `/api/v1/traders/${traderId}/trades?limit=${limit}`,
       { token },
     ),
 
   getAnalytics: (token: string, traderId: string, windowDays = 7) =>
     apiRequest<AnalyticsResponse>(
-      `/api/traders/${traderId}/analytics?windowDays=${windowDays}`,
+      `/api/v1/traders/${traderId}/analytics?windowDays=${windowDays}`,
       { token },
     ),
 };
@@ -79,57 +82,57 @@ export const tradersApi = {
 // Copy relation endpoints
 export const copyApi = {
   list: (token: string) =>
-    apiRequest<{ relations: CopyRelationResponse[] }>('/api/copy', { token }),
+    apiRequest<{ relations: CopyRelationResponse[] }>('/api/v1/copy', { token }),
 
   create: (token: string, data: CreateCopyRelationRequest) =>
-    apiRequest<CopyRelationResponse>('/api/copy', { method: 'POST', body: data, token }),
+    apiRequest<CopyRelationResponse>('/api/v1/copy', { method: 'POST', body: data, token }),
 
   update: (token: string, relationId: string, data: UpdateCopyRelationRequest) =>
-    apiRequest<CopyRelationResponse>(`/api/copy/${relationId}`, {
+    apiRequest<CopyRelationResponse>(`/api/v1/copy/${relationId}`, {
       method: 'PATCH',
       body: data,
       token,
     }),
 
   delete: (token: string, relationId: string) =>
-    apiRequest<void>(`/api/copy/${relationId}`, { method: 'DELETE', token }),
+    apiRequest<void>(`/api/v1/copy/${relationId}`, { method: 'DELETE', token }),
 };
 
 // Vault endpoints
 export const vaultApi = {
   get: (token: string) =>
-    apiRequest<VaultResponse>('/api/vault', { token }),
+    apiRequest<VaultResponse>('/api/v1/vault', { token }),
 
   create: (token: string, data: CreateVaultRequest) =>
-    apiRequest<VaultResponse>('/api/vault', { method: 'POST', body: data, token }),
+    apiRequest<VaultResponse>('/api/v1/vault/create', { method: 'POST', body: data, token }),
 
   deposit: (token: string, data: { amount: number; signature: string }) =>
-    apiRequest<VaultResponse>('/api/vault/deposit', { method: 'POST', body: data, token }),
+    apiRequest<VaultResponse>('/api/v1/vault/deposit', { method: 'POST', body: data, token }),
 
-  withdraw: (token: string, data: { amount: number }) =>
-    apiRequest<VaultResponse>('/api/vault/withdraw', { method: 'POST', body: data, token }),
+  withdraw: (token: string, data: { amount: number; signature: string }) =>
+    apiRequest<VaultResponse>('/api/v1/vault/withdraw', { method: 'POST', body: data, token }),
 
   updateRiskParams: (token: string, data: UpdateRiskParamsRequest) =>
-    apiRequest<VaultResponse>('/api/vault/risk', { method: 'PATCH', body: data, token }),
+    apiRequest<VaultResponse>('/api/v1/vault/settings', { method: 'PATCH', body: data, token }),
 
   pause: (token: string) =>
-    apiRequest<VaultResponse>('/api/vault/pause', { method: 'POST', token }),
+    apiRequest<VaultResponse>('/api/v1/vault/pause', { method: 'POST', token }),
 
   resume: (token: string) =>
-    apiRequest<VaultResponse>('/api/vault/resume', { method: 'POST', token }),
+    apiRequest<VaultResponse>('/api/v1/vault/resume', { method: 'POST', token }),
 
   getTransactions: (token: string) =>
-    apiRequest<{ transactions: VaultTransactionResponse[] }>('/api/vault/transactions', { token }),
+    apiRequest<{ transactions: VaultTransactionResponse[] }>('/api/v1/vault/transactions', { token }),
 };
 
 // Dashboard endpoints
 export const dashboardApi = {
   getSummary: (token: string) =>
-    apiRequest<DashboardSummary>('/api/dashboard', { token }),
+    apiRequest<DashboardSummary>('/api/v1/dashboard', { token }),
 
   getRecentTrades: (token: string, limit = 20) =>
     apiRequest<{ trades: CopyTradeResponse[] }>(
-      `/api/dashboard/trades?limit=${limit}`,
+      `/api/v1/dashboard/trades?limit=${limit}`,
       { token },
     ),
 };
