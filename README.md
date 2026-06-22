@@ -46,21 +46,24 @@ A non-custodial, on-chain vault-based copy trading platform for Solana. Users ca
 ## Quickstart
 
 ```bash
-# 1. Install dependencies
+# 1. Clone the repository
+git clone <repo-url>
+cd poo
+
+# 2. Install dependencies
 pnpm install
 
-# 2. Copy environment variables
+# 3. Copy environment variables
 cp .env.example .env
 
-# 3. Start infrastructure
-docker compose up postgres redis -d
-
-# 4. Run database migrations
-pnpm --filter database prisma migrate deploy
+# 4. Start infrastructure
+docker compose up -d postgres redis
 
 # 5. Start all services in development
 pnpm dev
 ```
+
+> **Note:** The `pnpm dev` command will automatically generate the Prisma client and run any pending migrations in development mode. For production, use `docker compose up -d` to run the full stack including the migration service.
 
 ## Project Structure
 

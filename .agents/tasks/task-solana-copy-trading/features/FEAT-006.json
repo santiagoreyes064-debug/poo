@@ -2,7 +2,7 @@
   "id": "FEAT-006",
   "type": "chore",
   "description": "Implement Docker Compose setup for local development, GitHub Actions CI/CD pipeline, Prometheus + Grafana monitoring configuration, and final project documentation. This ties everything together for local development and deployment.",
-  "status": "pending",
+  "status": "in_progress",
   "steps": [
     "Create docker-compose.yml with all services: postgres (postgres:16-alpine, port 5432, healthcheck), redis (redis:7-alpine, port 6379, appendonly, maxmemory 256mb, healthcheck), migrate (one-shot prisma migrate deploy), api-gateway (port 3001), wallet-monitor, tx-parser, copy-engine, execution, analytics, notification, prometheus (port 9090), grafana (port 3002). Use x-common-env anchor for shared .env. All services depend on postgres+redis healthy. All app services run as non-root uid 1001.",
     "Create Dockerfile for each service in apps/ (multi-stage: node:22-alpine base, pnpm install, build, prune to production, run as uid 1001). Use a shared Dockerfile.base pattern or per-service Dockerfiles.",
