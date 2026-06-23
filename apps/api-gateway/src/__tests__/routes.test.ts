@@ -218,6 +218,12 @@ vi.mock('@copy-trading/database', () => ({
           if (where.enabled !== undefined && c.enabled !== where.enabled) return false;
           return true;
         });
+        if (include?.trader) {
+          results = results.map((c) => ({
+            ...c,
+            trader: tradersDb.find((t) => t.id === c.traderId) || { id: c.traderId, walletAddress: 'unknown', label: null },
+          }));
+        }
         return results;
       },
       findFirst: async ({ where }: any) => {
@@ -228,15 +234,27 @@ vi.mock('@copy-trading/database', () => ({
           return true;
         }) || null;
       },
-      create: async ({ data }: any) => {
+      create: async ({ data, include }: any) => {
         const copy = { id: `copy_${Date.now()}_${Math.random().toString(36).slice(2)}`, ...data };
         copyRelationsDb.push(copy);
+        if (include?.trader) {
+          return {
+            ...copy,
+            trader: tradersDb.find((t) => t.id === data.traderId) || { id: data.traderId, walletAddress: 'unknown', label: null },
+          };
+        }
         return copy;
       },
-      update: async ({ where, data }: any) => {
+      update: async ({ where, data, include }: any) => {
         const idx = copyRelationsDb.findIndex((c) => c.id === where.id);
         if (idx >= 0) {
           Object.assign(copyRelationsDb[idx], data);
+          if (include?.trader) {
+            return {
+              ...copyRelationsDb[idx],
+              trader: tradersDb.find((t) => t.id === copyRelationsDb[idx].traderId) || { id: copyRelationsDb[idx].traderId, walletAddress: 'unknown', label: null },
+            };
+          }
           return copyRelationsDb[idx];
         }
         return null;

@@ -63,7 +63,21 @@ export async function copyRoutes(app: FastifyInstance): Promise<void> {
       where: { userId: user.userId },
       include: { trader: true },
     });
-    return reply.send({ copies });
+
+    // Flatten trader fields into the response so the frontend gets
+    // traderLabel, traderAddress, totalPnlSol, and totalTrades directly
+    const flatCopies = copies.map((copy) => {
+      const { trader, ...rest } = copy;
+      return {
+        ...rest,
+        traderLabel: trader.label ?? undefined,
+        traderAddress: trader.walletAddress,
+        totalPnlSol: 0, // TODO: compute from CopyTrade aggregation
+        totalTrades: 0, // TODO: compute from CopyTrade count
+      };
+    });
+
+    return reply.send({ copies: flatCopies });
   });
 
   // POST /api/v1/copy/subscribe - Create a new copy relation
@@ -107,6 +121,7 @@ export async function copyRoutes(app: FastifyInstance): Promise<void> {
         maxOpenPositions: body.maxOpenPositions,
         tokenBlacklist: body.tokenBlacklist ?? [],
       },
+      include: { trader: true },
     });
 
     writeAuditLog({
@@ -116,7 +131,16 @@ export async function copyRoutes(app: FastifyInstance): Promise<void> {
       ipAddress: request.ip,
     });
 
-    return reply.status(201).send({ copy: newCopy });
+    const { trader, ...rest } = newCopy;
+    return reply.status(201).send({
+      copy: {
+        ...rest,
+        traderLabel: trader.label ?? undefined,
+        traderAddress: trader.walletAddress,
+        totalPnlSol: 0,
+        totalTrades: 0,
+      },
+    });
   });
 
   // PATCH /api/v1/copy/:id - Update copy relation (whitelisted fields only)
@@ -143,6 +167,7 @@ export async function copyRoutes(app: FastifyInstance): Promise<void> {
     const updatedCopy = await prisma.copyRelation.update({
       where: { id },
       data: updateData,
+      include: { trader: true },
     });
 
     writeAuditLog({
@@ -152,7 +177,16 @@ export async function copyRoutes(app: FastifyInstance): Promise<void> {
       ipAddress: request.ip,
     });
 
-    return reply.send({ copy: updatedCopy });
+    const { trader, ...rest } = updatedCopy;
+    return reply.send({
+      copy: {
+        ...rest,
+        traderLabel: trader.label ?? undefined,
+        traderAddress: trader.walletAddress,
+        totalPnlSol: 0,
+        totalTrades: 0,
+      },
+    });
   });
 
   // DELETE /api/v1/copy/:id - Remove copy relation
@@ -198,9 +232,19 @@ export async function copyRoutes(app: FastifyInstance): Promise<void> {
         pausedAt: new Date(),
         pauseReason: 'User paused',
       },
+      include: { trader: true },
     });
 
-    return reply.send({ copy: updatedCopy });
+    const { trader: pausedTrader, ...pausedRest } = updatedCopy;
+    return reply.send({
+      copy: {
+        ...pausedRest,
+        traderLabel: pausedTrader.label ?? undefined,
+        traderAddress: pausedTrader.walletAddress,
+        totalPnlSol: 0,
+        totalTrades: 0,
+      },
+    });
   });
 
   // POST /api/v1/copy/:id/resume - Resume copy relation
@@ -222,9 +266,19 @@ export async function copyRoutes(app: FastifyInstance): Promise<void> {
         pausedAt: null,
         pauseReason: null,
       },
+      include: { trader: true },
     });
 
-    return reply.send({ copy: updatedCopy });
+    const { trader: resumedTrader, ...resumedRest } = updatedCopy;
+    return reply.send({
+      copy: {
+        ...resumedRest,
+        traderLabel: resumedTrader.label ?? undefined,
+        traderAddress: resumedTrader.walletAddress,
+        totalPnlSol: 0,
+        totalTrades: 0,
+      },
+    });
   });
 
   // GET /api/v1/copy/:id/trades - Get trades for a copy relation
