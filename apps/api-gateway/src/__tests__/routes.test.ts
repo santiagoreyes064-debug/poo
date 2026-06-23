@@ -64,10 +64,46 @@ const copyRelationsDb: Record<string, any>[] = [];
 const copyTradesDb: Record<string, any>[] = [];
 const notificationPrefsDb: Record<string, any>[] = [];
 const auditLogsDb: Record<string, any>[] = [];
+const usersDb: Record<string, any>[] = [];
+const connectedWalletsDb: Record<string, any>[] = [];
 
 // Mock Prisma
 vi.mock('@copy-trading/database', () => ({
   prisma: {
+    user: {
+      upsert: async ({ where, create, update }: any) => {
+        const existing = usersDb.find((u) => u.id === where.id);
+        if (existing) {
+          Object.assign(existing, update);
+          return existing;
+        }
+        const user = { ...create, createdAt: new Date() };
+        usersDb.push(user);
+        return user;
+      },
+      findUnique: async ({ where }: any) => {
+        return usersDb.find((u) => u.id === where.id) || null;
+      },
+    },
+    connectedWallet: {
+      upsert: async ({ where, create, update }: any) => {
+        const existing = connectedWalletsDb.find((w) => w.publicKey === where.publicKey);
+        if (existing) {
+          Object.assign(existing, update);
+          return existing;
+        }
+        const wallet = { id: `wallet_${Date.now()}_${Math.random().toString(36).slice(2)}`, ...create };
+        connectedWalletsDb.push(wallet);
+        return wallet;
+      },
+      findFirst: async ({ where }: any) => {
+        return connectedWalletsDb.find((w) => {
+          if (where.userId && w.userId !== where.userId) return false;
+          if (where.isDefault !== undefined && w.isDefault !== where.isDefault) return false;
+          return true;
+        }) || null;
+      },
+    },
     vault: {
       findFirst: async ({ where }: any) => {
         return vaultsDb.find((v) => {
@@ -274,6 +310,16 @@ describe('API Routes', () => {
     authToken = app.jwt.sign({
       userId: 'user_test123',
       walletAddress: 'TestWallet123456789012345678901234',
+    });
+
+    // Seed test user and connected wallet for vault tests
+    usersDb.push({ id: 'user_test123', createdAt: new Date() });
+    connectedWalletsDb.push({
+      id: 'wallet_test123',
+      publicKey: 'TestWallet123456789012345678901234',
+      userId: 'user_test123',
+      isDefault: true,
+      label: null,
     });
   });
 
@@ -528,11 +574,16 @@ describe('API Routes', () => {
       expect(response.statusCode).toBe(401);
     });
 
-    it('POST /api/v1/vault/create should validate required fields', async () => {
+    it('POST /api/v1/vault/create should return error when no connected wallet', async () => {
+      // Create a token for a user with no connected wallet
+      const noWalletToken = app.jwt.sign({
+        userId: 'user_no_wallet',
+        walletAddress: 'NoWalletUser12345678901234567890123',
+      });
       const response = await app.inject({
         method: 'POST',
         url: '/api/v1/vault/create',
-        headers: { authorization: `Bearer ${authToken}` },
+        headers: { authorization: `Bearer ${noWalletToken}` },
         payload: {},
       });
 
@@ -545,9 +596,8 @@ describe('API Routes', () => {
         url: '/api/v1/vault/create',
         headers: { authorization: `Bearer ${authToken}` },
         payload: {
-          walletId: 'wallet_123',
-          publicKey: 'VaultPublicKey123456789012345678901',
-          authority: 'AuthorityKey12345678901234567890123',
+          maxTradeSizeSol: 1.0,
+          maxDailyLossSol: 5.0,
         },
       });
 

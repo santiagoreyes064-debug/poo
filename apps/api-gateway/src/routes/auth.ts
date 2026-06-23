@@ -1,5 +1,6 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { PublicKey } from '@solana/web3.js';
+import { prisma } from '@copy-trading/database';
 import { generateNonce, verifyEd25519Signature } from '../plugins/auth.js';
 import { getRedisClient, storeNonce, getNonce, deleteNonce } from '../services/redis.js';
 import { writeAuditLog, AuditAction } from '../services/audit.js';
@@ -75,8 +76,20 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
     // Delete nonce after successful verification
     await deleteNonce(redis, walletAddress);
 
-    // Upsert user and wallet (simplified - in production use database)
+    // Upsert user and wallet in the database
     const userId = `user_${walletAddress.slice(0, 8)}`;
+
+    await prisma.user.upsert({
+      where: { id: userId },
+      create: { id: userId },
+      update: {},
+    });
+
+    await prisma.connectedWallet.upsert({
+      where: { publicKey: walletAddress },
+      create: { publicKey: walletAddress, userId, isDefault: true },
+      update: { userId },
+    });
 
     // Generate JWT
     const token = app.jwt.sign({

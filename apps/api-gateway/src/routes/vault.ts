@@ -1,4 +1,5 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
+import crypto from 'crypto';
 import { prisma } from '@copy-trading/database';
 import { writeAuditLog, AuditAction } from '../services/audit.js';
 
@@ -7,9 +8,6 @@ interface VaultParams {
 }
 
 interface CreateVaultBody {
-  walletId: string;
-  publicKey: string;
-  authority: string;
   maxTradeSizeSol?: number;
   maxDailyLossSol?: number;
   maxSlippageBps?: number;
@@ -52,9 +50,14 @@ export async function vaultRoutes(app: FastifyInstance): Promise<void> {
     const user = request.user;
     const body = request.body;
 
-    if (!body.walletId || !body.publicKey || !body.authority) {
+    // Look up user's default connected wallet
+    const connectedWallet = await prisma.connectedWallet.findFirst({
+      where: { userId: user.userId, isDefault: true },
+    });
+
+    if (!connectedWallet) {
       return reply.status(400).send({
-        error: 'walletId, publicKey, and authority are required',
+        error: 'No connected wallet found. Please authenticate first.',
       });
     }
 
@@ -66,12 +69,16 @@ export async function vaultRoutes(app: FastifyInstance): Promise<void> {
       return reply.status(409).send({ error: 'User already has a vault' });
     }
 
+    // Auto-generate vault publicKey and use wallet info
+    const vaultPublicKey = crypto.randomUUID();
+    const authority = user.walletAddress;
+
     const vault = await prisma.vault.create({
       data: {
         userId: user.userId,
-        walletId: body.walletId,
-        publicKey: body.publicKey,
-        authority: body.authority,
+        walletId: connectedWallet.id,
+        publicKey: vaultPublicKey,
+        authority,
         maxTradeSizeSol: body.maxTradeSizeSol ?? 1.0,
         maxDailyLossSol: body.maxDailyLossSol ?? 5.0,
         maxSlippageBps: body.maxSlippageBps ?? 300,
@@ -101,11 +108,7 @@ export async function vaultRoutes(app: FastifyInstance): Promise<void> {
       where: { userId: user.userId },
     });
 
-    if (!vault) {
-      return reply.status(404).send({ error: 'Vault not found' });
-    }
-
-    return reply.send({ vault });
+    return reply.send({ vault: vault || null });
   });
 
   // GET /api/v1/vault/balance - Get vault balance

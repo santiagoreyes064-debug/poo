@@ -63,12 +63,14 @@ export const tradersApi = {
     );
   },
 
-  add: (token: string, walletAddress: string, label?: string) =>
-    apiRequest<TraderResponse>('/api/v1/traders/add', {
+  add: async (token: string, walletAddress: string, label?: string) => {
+    const res = await apiRequest<{ trader: TraderResponse }>('/api/v1/traders/add', {
       method: 'POST',
       body: { walletAddress, ...(label ? { label } : {}) },
       token,
-    }),
+    });
+    return res.trader;
+  },
 
   getById: (token: string, traderId: string) =>
     apiRequest<TraderResponse>(`/api/v1/traders/${traderId}`, { token }),
@@ -88,21 +90,29 @@ export const tradersApi = {
 
 // Copy relation endpoints
 export const copyApi = {
-  list: (token: string) =>
-    apiRequest<{ relations: CopyRelationResponse[] }>('/api/v1/copy', { token }),
+  list: async (token: string) => {
+    const res = await apiRequest<{ copies: CopyRelationResponse[] }>('/api/v1/copy', { token });
+    return { relations: res.copies };
+  },
 
-  create: (token: string, data: CreateCopyRelationRequest) =>
-    apiRequest<CopyRelationResponse>('/api/v1/copy', { method: 'POST', body: data, token }),
+  create: async (token: string, data: CreateCopyRelationRequest) => {
+    const res = await apiRequest<{ copy: CopyRelationResponse }>('/api/v1/copy', { method: 'POST', body: data, token });
+    return res.copy;
+  },
 
-  subscribe: (token: string, data: SubscribeCopyRequest) =>
-    apiRequest<CopyRelationResponse>('/api/v1/copy/subscribe', { method: 'POST', body: data, token }),
+  subscribe: async (token: string, data: SubscribeCopyRequest) => {
+    const res = await apiRequest<{ copy: CopyRelationResponse }>('/api/v1/copy/subscribe', { method: 'POST', body: data, token });
+    return res.copy;
+  },
 
-  update: (token: string, relationId: string, data: UpdateCopyRelationRequest) =>
-    apiRequest<CopyRelationResponse>(`/api/v1/copy/${relationId}`, {
+  update: async (token: string, relationId: string, data: UpdateCopyRelationRequest) => {
+    const res = await apiRequest<{ copy: CopyRelationResponse }>(`/api/v1/copy/${relationId}`, {
       method: 'PATCH',
       body: data,
       token,
-    }),
+    });
+    return res.copy;
+  },
 
   delete: (token: string, relationId: string) =>
     apiRequest<void>(`/api/v1/copy/${relationId}`, { method: 'DELETE', token }),
@@ -110,26 +120,40 @@ export const copyApi = {
 
 // Vault endpoints
 export const vaultApi = {
-  get: (token: string) =>
-    apiRequest<VaultResponse>('/api/v1/vault', { token }),
+  get: async (token: string) => {
+    const res = await apiRequest<{ vault: VaultResponse | null }>('/api/v1/vault', { token });
+    return res.vault;
+  },
 
-  create: (token: string, data: CreateVaultRequest) =>
-    apiRequest<VaultResponse>('/api/v1/vault/create', { method: 'POST', body: data, token }),
+  create: async (token: string, data: CreateVaultRequest) => {
+    const res = await apiRequest<{ vault: VaultResponse }>('/api/v1/vault/create', { method: 'POST', body: data, token });
+    return res.vault;
+  },
 
-  deposit: (token: string, data: { amount: number; signature: string }) =>
-    apiRequest<VaultResponse>('/api/v1/vault/deposit', { method: 'POST', body: data, token }),
+  deposit: async (token: string, data: { amount: number; signature: string }) => {
+    const res = await apiRequest<{ vault: VaultResponse }>('/api/v1/vault/deposit', { method: 'POST', body: data, token });
+    return res.vault;
+  },
 
-  withdraw: (token: string, data: { amount: number; signature: string }) =>
-    apiRequest<VaultResponse>('/api/v1/vault/withdraw', { method: 'POST', body: data, token }),
+  withdraw: async (token: string, data: { amount: number; signature: string }) => {
+    const res = await apiRequest<{ vault: VaultResponse }>('/api/v1/vault/withdraw', { method: 'POST', body: data, token });
+    return res.vault;
+  },
 
-  updateRiskParams: (token: string, data: UpdateRiskParamsRequest) =>
-    apiRequest<VaultResponse>('/api/v1/vault/settings', { method: 'PATCH', body: data, token }),
+  updateRiskParams: async (token: string, data: UpdateRiskParamsRequest) => {
+    const res = await apiRequest<{ vault: VaultResponse }>('/api/v1/vault/settings', { method: 'PATCH', body: data, token });
+    return res.vault;
+  },
 
-  pause: (token: string) =>
-    apiRequest<VaultResponse>('/api/v1/vault/pause', { method: 'POST', token }),
+  pause: async (token: string) => {
+    const res = await apiRequest<{ vault: VaultResponse }>('/api/v1/vault/pause', { method: 'POST', token });
+    return res.vault;
+  },
 
-  resume: (token: string) =>
-    apiRequest<VaultResponse>('/api/v1/vault/resume', { method: 'POST', token }),
+  resume: async (token: string) => {
+    const res = await apiRequest<{ vault: VaultResponse }>('/api/v1/vault/resume', { method: 'POST', token });
+    return res.vault;
+  },
 
   getTransactions: (token: string) =>
     apiRequest<{ transactions: VaultTransactionResponse[] }>('/api/v1/vault/transactions', { token }),
