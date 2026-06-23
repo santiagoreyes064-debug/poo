@@ -95,36 +95,36 @@ export default function TradersPage() {
       </div>
 
       {/* Add Trader Section */}
-      {token && (
-        <Card>
-          <CardContent className="p-4 space-y-3">
-            <h3 className="font-semibold text-sm">Add Trader</h3>
-            <div className="flex gap-2">
-              <Input
-                placeholder="Paste Solana wallet address..."
-                value={addWallet}
-                onChange={(e) => setAddWallet(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleAddTrader()}
-              />
-              <Button onClick={handleAddTrader} disabled={!addWallet.trim() || addingTrader}>
-                <Plus className="h-4 w-4 mr-1" />
-                {addingTrader ? '...' : 'Add Trader'}
-              </Button>
-            </div>
-            {addStatus && (
-              <p className={cn('text-xs', addStatus.toLowerCase().includes('success') ? 'text-brand-green' : 'text-red-400')}>
-                {addStatus}
-              </p>
-            )}
-          </CardContent>
-        </Card>
-      )}
-
-      {!token && (
-        <div className="rounded-lg border border-gray-700 bg-gray-800/50 p-4 text-center text-gray-400">
-          Connect your wallet to view the trader leaderboard
-        </div>
-      )}
+      <Card>
+        <CardContent className="p-4 space-y-3">
+          <h3 className="font-semibold text-sm">Add Trader</h3>
+          {token ? (
+            <>
+              <div className="flex gap-2">
+                <Input
+                  placeholder="Paste Solana wallet address..."
+                  value={addWallet}
+                  onChange={(e) => setAddWallet(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleAddTrader()}
+                />
+                <Button onClick={handleAddTrader} disabled={!addWallet.trim() || addingTrader}>
+                  <Plus className="h-4 w-4 mr-1" />
+                  {addingTrader ? '...' : 'Add Trader'}
+                </Button>
+              </div>
+              {addStatus && (
+                <p className={cn('text-xs', addStatus.toLowerCase().includes('success') ? 'text-brand-green' : 'text-red-400')}>
+                  {addStatus}
+                </p>
+              )}
+            </>
+          ) : (
+            <p className="text-sm text-gray-400">
+              Please connect and sign to add traders
+            </p>
+          )}
+        </CardContent>
+      </Card>
 
       <div className="rounded-lg border border-gray-800 bg-gray-900">
         <Table>
