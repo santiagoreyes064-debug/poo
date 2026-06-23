@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import Redis from 'ioredis';
 import { prisma } from '@copy-trading/database';
 import { DexAdapterRegistry } from '@copy-trading/dex-adapters';

@@ -14,7 +14,8 @@
     },
     "dev": {
       "cache": false,
-      "persistent": true
+      "persistent": true,
+      "env": ["DATABASE_URL", "REDIS_URL", "JWT_SECRET", "HELIUS_API_KEY", "JITO_BLOCK_ENGINE_URL", "JITO_AUTH_TOKEN", "PAPER_TRADING", "NODE_ENV", "CORS_ORIGIN", "PORT", "NEXT_PUBLIC_API_URL", "NEXT_PUBLIC_WS_URL"]
     }
   }
 }

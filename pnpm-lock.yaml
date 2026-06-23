@@ -41,6 +41,9 @@ importers:
       '@copy-trading/shared-types':
         specifier: workspace:*
         version: link:../../packages/shared-types
+      dotenv:
+        specifier: ^16.4.0
+        version: 16.6.1
       ioredis:
         specifier: ^5.4.0
         version: 5.11.1
@@ -81,6 +84,9 @@ importers:
       bs58:
         specifier: ^5.0.0
         version: 5.0.0
+      dotenv:
+        specifier: ^16.4.0
+        version: 16.6.1
       fastify:
         specifier: ^4.28.0
         version: 4.29.1
@@ -127,6 +133,9 @@ importers:
       '@copy-trading/shared-types':
         specifier: workspace:*
         version: link:../../packages/shared-types
+      dotenv:
+        specifier: ^16.4.0
+        version: 16.6.1
       ioredis:
         specifier: ^5.4.0
         version: 5.11.1
@@ -152,6 +161,9 @@ importers:
       '@copy-trading/vault-sdk':
         specifier: workspace:*
         version: link:../../packages/vault-sdk
+      dotenv:
+        specifier: ^16.4.0
+        version: 16.6.1
       ioredis:
         specifier: ^5.4.0
         version: 5.11.1
@@ -244,6 +256,9 @@ importers:
       '@copy-trading/shared-types':
         specifier: workspace:*
         version: link:../../packages/shared-types
+      dotenv:
+        specifier: ^16.4.0
+        version: 16.6.1
       ioredis:
         specifier: ^5.4.0
         version: 5.11.1
@@ -269,6 +284,9 @@ importers:
       '@copy-trading/shared-types':
         specifier: workspace:*
         version: link:../../packages/shared-types
+      dotenv:
+        specifier: ^16.4.0
+        version: 16.6.1
       ioredis:
         specifier: ^5.4.0
         version: 5.11.1
@@ -291,6 +309,9 @@ importers:
       '@copy-trading/shared-types':
         specifier: workspace:*
         version: link:../../packages/shared-types
+      dotenv:
+        specifier: ^16.4.0
+        version: 16.6.1
       ioredis:
         specifier: ^5.4.0
         version: 5.11.1
@@ -316,6 +337,9 @@ importers:
       '@prisma/client':
         specifier: ^5.14.0
         version: 5.22.0(prisma@5.22.0)
+      dotenv:
+        specifier: ^16.4.0
+        version: 16.6.1
     devDependencies:
       '@types/node':
         specifier: ^20.12.0
@@ -3659,6 +3683,10 @@ packages:
 
   dot-case@3.0.4:
     resolution: {integrity: sha512-Kv5nKlh6yRrdrGvxeJ2e5y2eRUpkUosIW4A2AS38zwSz27zu7ufDwQPi5Jhs3XAlGNetl3bmnGhQsMtkKJnj3w==}
+
+  dotenv@16.6.1:
+    resolution: {integrity: sha512-uBq4egWHTcTt33a72vpSG0z3HnPuIl6NqYcTrKEg2azoEyl2hpW0zqlxysq2pK9HlDIHyHyakeYaYnSAwd8bow==}
+    engines: {node: '>=12'}
 
   draggabilly@3.0.0:
     resolution: {integrity: sha512-aEs+B6prbMZQMxc9lgTpCBfyCUhRur/VFucHhIOvlvvdARTj7TcDmX/cdOUtqbjJJUh7+agyJXR5Z6IFe1MxwQ==}
@@ -10620,6 +10648,8 @@ snapshots:
     dependencies:
       no-case: 3.0.4
       tslib: 2.8.1
+
+  dotenv@16.6.1: {}
 
   draggabilly@3.0.0:
     dependencies:

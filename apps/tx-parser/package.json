@@ -13,6 +13,7 @@
     "@copy-trading/shared-types": "workspace:*",
     "@copy-trading/database": "workspace:*",
     "@copy-trading/dex-adapters": "workspace:*",
+    "dotenv": "^16.4.0",
     "ioredis": "^5.4.0"
   },
   "devDependencies": {

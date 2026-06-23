@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import WebSocket from 'ws';
 import Redis from 'ioredis';
 import { prisma } from '@copy-trading/database';
